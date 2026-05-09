@@ -123,11 +123,15 @@ pip install \
 
 ```
 dit-colorize-rpc/
-├── dit_rpc_server.py       # XML-RPC server (entry point)
-├── dit_colorize_main.py    # Colorization pipeline and image utilities
-├── qwen_config_fp4.json    # Config for RTX 50-Series (FP4)
-├── qwen_config_int4.json   # Config for RTX 30 / 40-Series (INT4)
-├── start_server.cmd        # Windows launch script
+├── dit_rpc_server.py        # XML-RPC server (entry point)
+├── dit_colorize_main.py     # Colorization pipeline and image utilities
+├── dit_client_example.py    # Example RPC client
+├── qwen_config_fp4.json     # Config for RTX 50-Series (FP4)
+├── qwen_config_int4.json    # Config for RTX 30 / 40-Series (INT4)
+├── start_server.cmd         # Windows launcher — server
+├── run_client_example.cmd   # Windows launcher — example client
+├── assets/
+│   └── santa_bw.png         # Sample B&W image for testing
 └── README.md
 ```
 
@@ -270,6 +274,57 @@ All methods return a `dict` with at least `{"ok": bool, "msg": str}`.
 
 > `skipped=True` means the frame was too dark to colorize (average brightness < 9/255).
 > The returned `data` field contains the unchanged input in that case.
+
+---
+
+## 🧪 Example Client
+
+`dit_client_example.py` is a minimal working client that colorizes `assets/santa_bw.png`
+and saves the result as `assets/santa_colorized.png`.
+
+### Run with pipeline already loaded on the server
+
+```bash
+python dit_client_example.py
+```
+
+### Run and let the client load the pipeline first
+
+```bash
+# RTX 50-Series
+python dit_client_example.py --pipeline-config qwen_config_fp4.json
+
+# RTX 30 / 40-Series
+python dit_client_example.py --pipeline-config qwen_config_int4.json
+```
+
+### Full list of client arguments
+
+```
+usage: dit_client_example.py [-h] [--host HOST] [--port PORT]
+                              [--pipeline-config CONFIG.json]
+                              [--prompt PROMPT]
+                              [--img-size IMG_SIZE] [--steps STEPS]
+
+options:
+  --host HOST                  Server host (default: 127.0.0.1)
+  --port PORT                  Server port (default: 8765)
+  --pipeline-config CONFIG.json
+                               Load the pipeline before colorizing
+  --prompt PROMPT              Text prompt for the model
+  --img-size IMG_SIZE          Max long side in pixels (0 = original size)
+  --steps STEPS                Inference steps (default: 2)
+```
+
+The result image `santa_colorized.png` will be written next to the input in
+the `assets/` folder.
+
+On Windows you can also use the provided `run_client_example.cmd`:
+
+```
+run_client_example.cmd          # RTX 50-Series (fp4, default)
+run_client_example.cmd int4     # RTX 30 / 40-Series
+```
 
 ---
 

@@ -38,7 +38,7 @@ Built on top of the [Nunchaku](https://github.com/mit-han-lab/nunchaku) SVDQuant
 
 ### 1 — Create a virtual environment
 
-Before creating the virtual envornment is necessary to download this repository as a ZIP file and extract it, once the archive has been extracted: pen a terminal, move into the project directory and create the venv there:
+Before creating the virtual envornment is necessary to download this repository as a ZIP file and extract it, once the archive has been extracted: open a terminal, move into the project directory and create the venv there:
 
 ```bash
 cd C:\path\to\DiTServerRPC-main

@@ -8,8 +8,7 @@ LastEditTime: 2026-01-14
 -------------------------------------------------------------------------------
 Batch colorization using the SVDQuant FP4 model:
   svdq-fp4_r128-qwen-image-edit-2509-lightning-4steps-251115.safetensors
-  svdq-int4_r128-qwen-image-edit-2509-lightning-4steps-251115.safetensors
-  
+
 - Optimized for RTX 50 (Blackwell)
 - Uses Nunchaku SVDQuant (4-bit) for the transformer
 - Maintains FP16/BF16 for peripheral layers
@@ -44,17 +43,17 @@ def load_nunchaku_pipeline(model_name: str, model_precision: str, model_rank, mo
     set_hf_cache_dir(cache_dir)
 
     if full_model_path != "":
-        return load_qwen_pipeline(full_model_path, cache_dir, torch_compile, device)
+        return load_qwen_pipeline(full_model_path, cache_dir, model_precision, torch_compile, device)
 
     if base_model_path == "":
         base_model_path = "nunchaku-ai/nunchaku-qwen-image-edit-2509/lightning-251115"
 
     model_path = f"{base_model_path}/svdq-{model_precision}_r{model_rank}-qwen-image-edit-2509-lightning-{model_inference_steps}steps-251115.safetensors"
 
-    return load_qwen_pipeline(model_path, cache_dir, torch_compile, device)
+    return load_qwen_pipeline(model_path, cache_dir, model_precision, torch_compile, device)
 
-def load_qwen_pipeline(model_path: str, cache_dir: str, torch_compile=False, device="cuda"):
-    print(f"Loading SVDQuant transformer from: {model_path}")
+def load_qwen_pipeline(model_path: str, cache_dir: str, model_precision: str = "fp4", torch_compile=False, device="cuda"):
+    print(f"Loading SVDQuant {model_precision.upper()} transformer from: {model_path}")
 
     import torch
     # Nunchaku (SVDQuant transformer)
@@ -86,12 +85,48 @@ def load_qwen_pipeline(model_path: str, cache_dir: str, torch_compile=False, dev
     }
     scheduler = FlowMatchEulerDiscreteScheduler.from_config(scheduler_config)
 
-    # 2. Initialize the Transformer from your local FP4 file
-    transformer = NunchakuQwenImageTransformer2DModel.from_pretrained(
-        model_path,
-        torch_dtype=torch.bfloat16,
-        device=device,
-    )
+    # 2. Initialize the Transformer
+    #
+    # For int4: nunchaku always initializes wscales with fp4 group-size (16) regardless
+    # of the precision argument, then load_state_dict fails because int4 checkpoints use
+    # group-size 64 (4× fewer scale rows).  The fix temporarily patches load_state_dict
+    # to resize every wscales parameter to match the checkpoint shape before loading.
+    if model_precision == "int4":
+        _original_load_sd = NunchakuQwenImageTransformer2DModel.load_state_dict
+
+        def _int4_load_state_dict(self, state_dict, strict=True, **kwargs):
+            for name, ckpt_tensor in state_dict.items():
+                if "wscales" not in name:
+                    continue
+                parts = name.split(".")
+                module = self
+                try:
+                    for part in parts[:-1]:
+                        module = getattr(module, part)
+                    param_name = parts[-1]
+                    current = getattr(module, param_name)
+                    if current.shape != ckpt_tensor.shape:
+                        setattr(module, param_name, torch.nn.Parameter(
+                            torch.zeros(ckpt_tensor.shape,
+                                        dtype=current.dtype,
+                                        device=current.device)
+                        ))
+                except AttributeError:
+                    pass
+
+            return _original_load_sd(self, state_dict, strict=strict, **kwargs)
+
+        NunchakuQwenImageTransformer2DModel.load_state_dict = _int4_load_state_dict
+
+    try:
+        transformer = NunchakuQwenImageTransformer2DModel.from_pretrained(
+            model_path,
+            torch_dtype=torch.bfloat16,
+            device=device,
+        )
+    finally:
+        if model_precision == "int4":
+            NunchakuQwenImageTransformer2DModel.load_state_dict = _original_load_sd
 
     # 3. Load the Pipeline
     # This will automatically download the correct VAE and VL Encoder
@@ -106,7 +141,7 @@ def load_qwen_pipeline(model_path: str, cache_dir: str, torch_compile=False, dev
     # 4. VRAM Optimization for 16GB (RTX 5070 Ti)
     # The sample uses a custom offload if memory is low
     if torch.cuda.get_device_properties(0).total_memory / (1024 ** 3) < 18:
-        print("Optimizing VRAM for 12GB/16GB card...")
+        print("Optimizing VRAM for 16GB card...")
         transformer.set_offload(True, use_pin_memory=True, num_blocks_on_gpu=1)
         pipe._exclude_from_cpu_offload.append("transformer")
         pipe.enable_sequential_cpu_offload()
@@ -115,6 +150,25 @@ def load_qwen_pipeline(model_path: str, cache_dir: str, torch_compile=False, dev
 
     if torch_compile:
         pipe.transformer = torch.compile(pipe.transformer, fullgraph=False, dynamic=False)
+
+    # 5. Compatibility patch: nunchaku 1.2.1 calls
+    #      pos_embed(img_shapes, txt_seq_lens, device=...)
+    #    passing txt_seq_lens as a positional argument.
+    #    Newer diffusers QwenEmbedRope.forward() expects it as a keyword argument
+    #    (txt_seq_lens=... deprecated, or max_txt_seq_len=...).
+    #    The wrapper below converts the positional call to keyword so both
+    #    old and new diffusers APIs are satisfied transparently.
+    _orig_pos_embed_fwd = pipe.transformer.pos_embed.forward
+
+    def _compat_pos_embed_fwd(img_shapes, txt_seq_lens=None, device=None, **kwargs):
+        return _orig_pos_embed_fwd(
+            img_shapes,
+            txt_seq_lens=txt_seq_lens,
+            device=device,
+            **kwargs,
+        )
+
+    pipe.transformer.pos_embed.forward = _compat_pos_embed_fwd
 
     return pipe
 
@@ -145,7 +199,7 @@ def colorize_image(pipe, img: Image, prompt:str, steps: int = 2, seed: int=42) -
         output = pipe(
             image=img,
             prompt=prompt,
-            num_inference_steps=steps,  # Optimized for colorization, 2 steps are enough
+            num_inference_steps=steps,  # Optimized for lightning model
             true_cfg_scale=1.0,
             generator=generator,
         )

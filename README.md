@@ -1,7 +1,7 @@
 # DiT Colorize RPC Server
 
 An XML-RPC server that exposes a GPU-accelerated colorization pipeline for black-and-white images and video frames.
-Built on top of the [Nunchaku](https://github.com/mit-han-lab/nunchaku) SVDQuant FP4 transformer and the `Qwen-Image-Edit-2509` diffusion model.
+Built on top of the [Nunchaku](https://github.com/mit-han-lab/nunchaku) SVDQuant FP4/INT4 transformer and the `Qwen-Image-Edit-2511` diffusion model.
 
 **Optimized for NVIDIA RTX 50-Series (Blackwell) & CUDA 12.8.**
 

@@ -4,7 +4,7 @@ Author: Dan64
 Date: 2024-12-26
 LastEditTime: 2026-01-14
 -------------------------------------------------------------------------------
-DiT Colorize RPC Server
+HAVC Colorize RPC Server
 Exposes the colorization pipeline via XML-RPC.
 
 Start on the GPU machine:
@@ -115,6 +115,18 @@ def _bytes_to_pil(data: bytes):
 # daemon_threads=True ensures the process exits even if threads are still
 # alive at shutdown time.
 # ---------------------------------------------------------------------------
+class ColorizeRequestHandler(SimpleXMLRPCRequestHandler):
+    """
+    HTTP/1.1 request handler with keep-alive support.
+
+    SimpleXMLRPCRequestHandler inherits from BaseHTTPRequestHandler which
+    defaults to HTTP/1.0 (connection-per-request). With HTTP/1.1 the TCP
+    connection is reused across calls, preventing ephemeral port exhaustion
+    on long video sequences (100k+ frames → 100k+ RPC calls).
+    """
+    protocol_version = "HTTP/1.1"
+
+
 class ThreadedXMLRPCServer(ThreadingMixIn, SimpleXMLRPCServer):
     daemon_threads = True
 
@@ -570,7 +582,7 @@ def _load_pipeline_config(config_path: str) -> dict:
 
 def main():
     parser = argparse.ArgumentParser(
-        description="DiT Colorize RPC Server",
+        description="HAVC Colorize RPC Server",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
     parser.add_argument("--host", default="127.0.0.1",
@@ -652,7 +664,7 @@ def main():
 
     server = ThreadedXMLRPCServer(
         addr=(args.host, args.port),
-        requestHandler=SimpleXMLRPCRequestHandler,
+        requestHandler=ColorizeRequestHandler,
         allow_none=True,
         use_builtin_types=True,   # transparent bytes↔base64; required for colorize_frame*
         logRequests=False,
@@ -660,7 +672,7 @@ def main():
     server.register_instance(service)
     server.register_introspection_functions()
 
-    logging.info(f"DiT Colorize RPC Server listening on {args.host}:{args.port}")
+    logging.info(f"HAVC Colorize RPC Server listening on {args.host}:{args.port}")
     logging.info("Press Ctrl+C to stop.")
 
     try:

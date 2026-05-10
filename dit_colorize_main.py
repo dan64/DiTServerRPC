@@ -54,7 +54,7 @@ def load_nunchaku_pipeline(model_name: str, model_precision: str, model_rank, mo
     return load_qwen_pipeline(model_path, cache_dir, torch_compile, device)
 
 def load_qwen_pipeline(model_path: str, cache_dir: str, torch_compile=False, device="cuda"):
-    print(f"Loading SVDQuant FP4 transformer from: {model_path}")
+    print(f"Loading SVDQuant transformer from: {model_path}")
 
     import torch
     # Nunchaku (SVDQuant transformer)
@@ -106,7 +106,7 @@ def load_qwen_pipeline(model_path: str, cache_dir: str, torch_compile=False, dev
     # 4. VRAM Optimization for 16GB (RTX 5070 Ti)
     # The sample uses a custom offload if memory is low
     if torch.cuda.get_device_properties(0).total_memory / (1024 ** 3) < 18:
-        print("Optimizing VRAM for 16GB card...")
+        print("Optimizing VRAM for 12GB/16GB card...")
         transformer.set_offload(True, use_pin_memory=True, num_blocks_on_gpu=1)
         pipe._exclude_from_cpu_offload.append("transformer")
         pipe.enable_sequential_cpu_offload()

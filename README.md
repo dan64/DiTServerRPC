@@ -38,10 +38,10 @@ Built on top of the [Nunchaku](https://github.com/mit-han-lab/nunchaku) SVDQuant
 
 ### 1 — Create a virtual environment
 
-Open a terminal, move into the project directory and create the venv there:
+Before creating the virtual envornment is necessary to download this repository as a ZIP file and extract it, once the archive has been extracted: pen a terminal, move into the project directory and create the venv there:
 
 ```bash
-cd C:\path\to\dit-colorize-rpc
+cd C:\path\to\DiTServerRPC-main
 
 python -m venv .venv
 # Windows
@@ -334,9 +334,9 @@ All methods return a `dict` with at least `{"ok": bool, "msg": str}`.
 
 ### Colorization — shared memory (same-host only, zero-copy)
 
-| Method | Returns | Description |
-| --- | --- | --- |
-| `colorize_frame_shm(shm_in, shm_out, h, w, prompt, img_size=0, steps=2)` | `{"ok", "elapsed", "skipped", "msg"}` | Single frame via shared memory |
+| Method                                                                                            | Returns                                            | Description                                         |
+| ------------------------------------------------------------------------------------------------- | -------------------------------------------------- | --------------------------------------------------- |
+| `colorize_frame_shm(shm_in, shm_out, h, w, prompt, img_size=0, steps=2)`                          | `{"ok", "elapsed", "skipped", "msg"}`              | Single frame via shared memory                      |
 | `colorize_frame_pair_shm(shm_in1, shm_out1, h1, w1, shm_in2, shm_out2, h2, w2, prompt, gap_px=8)` | `{"ok", "elapsed", "skipped1", "skipped2", "msg"}` | Two frames via shared memory, single inference pass |
 
 > See [Shared Memory Transport](#-shared-memory-transport-same-host-only) for usage details.
@@ -347,10 +347,10 @@ All methods return a `dict` with at least `{"ok": bool, "msg": str}`.
 
 Both clients support two transport modes selectable via `--use-shm`:
 
-| Mode | Flag | When to use | Measured speed (1480×1080 px pair) |
-|---|---|---|---|
-| Standard RPC | _(default)_ | Any deployment, including remote server | ~5.25s/image |
-| Shared memory | `--use-shm` | Server and client on the **same host** only | ~4.06s/image (**~23% faster**) |
+| Mode          | Flag        | When to use                                 | Measured speed (1480×1080 px pair) |
+| ------------- | ----------- | ------------------------------------------- | ---------------------------------- |
+| Standard RPC  | _(default)_ | Any deployment, including remote server     | ~5.25s/image                       |
+| Shared memory | `--use-shm` | Server and client on the **same host** only | ~4.06s/image (**~23% faster**)     |
 
 ### Single frame — `dit_client_example.py`
 
@@ -434,11 +434,11 @@ The clients detect this automatically: passing `--use-shm` when the host is not
 
 Measured on a 1480×1080 pixel pair (RTX 5070 Ti, FP4, paired inference):
 
-| Transport | Per-image time | Round-trip overhead |
-|---|---|---|
-| Standard RPC (PNG) | ~5.25s | ~1.1s |
-| Shared memory | ~4.06s | ~0.16s |
-| **Gain** | **~23% faster** | **~7× less overhead** |
+| Transport          | Per-image time  | Round-trip overhead   |
+| ------------------ | --------------- | --------------------- |
+| Standard RPC (PNG) | ~5.25s          | ~1.1s                 |
+| Shared memory      | ~4.06s          | ~0.16s                |
+| **Gain**           | **~23% faster** | **~7× less overhead** |
 
 The round-trip overhead with shared memory is essentially zero — the 0.16s gap between
 inference time and wall-clock time is just Python function call and numpy overhead.

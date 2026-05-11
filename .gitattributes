@@ -1,0 +1,23 @@
+# ---------------------------------------------------------------------------
+# .gitattributes — line ending policy for DiTServerRPC
+#
+# Windows batch files MUST have CRLF line endings or CMD will misparse them.
+# All other text files use LF (cross-platform standard).
+# ---------------------------------------------------------------------------
+
+# Windows scripts — force CRLF regardless of git config
+*.cmd   text eol=crlf
+*.bat   text eol=crlf
+
+# Python, JSON, Markdown, text — LF
+*.py    text eol=lf
+*.json  text eol=lf
+*.md    text eol=lf
+*.txt   text eol=lf
+
+# Binary files — no conversion
+*.png   binary
+*.jpg   binary
+*.jpeg  binary
+*.whl   binary
+*.safetensors binary

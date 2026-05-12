@@ -94,13 +94,12 @@ set PYTHON_EXE=python
 :: ---------------------------------------------------------------------------
 :: BUILD COMMAND AND LAUNCH
 :: ---------------------------------------------------------------------------
-set CMD="%PYTHON_EXE%" "%SERVER_SCRIPT%" ^
-    --host %HOST% ^
-    --port %PORT% ^
-    --module-dir "%SERVER_DIR%" ^
-    --load-pipeline ^
-    --pipeline-config "%CONFIG_PATH%"
-
+set CMD="%PYTHON_EXE%" "%SERVER_SCRIPT%"
+set CMD=%CMD% --host %HOST%
+set CMD=%CMD% --port %PORT%
+set CMD=%CMD% --module-dir "%SERVER_DIR%"
+set CMD=%CMD% --load-pipeline
+set CMD=%CMD% --pipeline-config "%CONFIG_PATH%"
 if not "%LOGFILE%"=="" set CMD=%CMD% --logfile "%LOGFILE%"
 
 echo ============================================================

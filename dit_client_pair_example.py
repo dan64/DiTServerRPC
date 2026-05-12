@@ -5,15 +5,16 @@ Date: 2026-05-10
 -------------------------------------------------------------------------------
 DiT Colorize RPC Client — paired inference example
 Connects to a running dit_rpc_server instance and colorizes two B&W frames
-in a single inference pass using colorize_frame_pair() or
-colorize_frame_pair_shm() (with --use-shm).
+in a single inference pass.
+
+The pipeline must already be loaded on the server (start the server with
+--load-pipeline --pipeline-config CONFIG.json).
 
 Input  : assets/sample1_bw.jpg  +  assets/sample2_bw.jpg
 Output : assets/sample1_colorized.jpg  +  assets/sample2_colorized.jpg
 
 Usage:
     python dit_client_pair_example.py [--host HOST] [--port PORT]
-                                      [--pipeline-config CONFIG.json]
                                       [--prompt "..."]
                                       [--gap-px N]
                                       [--use-shm]
@@ -22,7 +23,6 @@ Usage:
 
 import argparse
 import io
-import json
 import sys
 import time
 import uuid
@@ -109,7 +109,6 @@ def main():
     )
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--port", type=int, default=8765)
-    parser.add_argument("--pipeline-config", default="", metavar="CONFIG.json")
     parser.add_argument("--prompt",
                         default="Colorize this photo, natural skin tones, "
                                 "vibrant environment. Maintain consistency and details.")
@@ -148,30 +147,11 @@ def main():
         use_shm = False
     print(f"[INFO] Transport: {'shared memory' if use_shm else 'standard RPC (PNG)'}")
 
-    if args.pipeline_config:
-        config_path = Path(args.pipeline_config)
-        if not config_path.is_file():
-            print(f"[ERROR] Config file not found: {config_path}")
-            sys.exit(1)
-        with config_path.open(encoding="utf-8") as fh:
-            cfg = json.load(fh)
-        if not proxy.is_pipeline_loaded():
-            print(f"[INFO] Loading pipeline from: {config_path.name} ...")
-            result = proxy.load_pipeline(
-                cfg["model_name"], cfg["model_precision"], cfg["model_rank"],
-                cfg["model_inference_steps"],
-                cfg.get("cache_dir", ""), cfg.get("full_model_path", ""),
-            )
-            if not result["ok"]:
-                print(f"[ERROR] load_pipeline failed: {result['msg']}")
-                sys.exit(1)
-            print("[INFO] Pipeline loaded successfully.")
-        else:
-            print("[INFO] Pipeline already loaded on server.")
-    elif not proxy.is_pipeline_loaded():
-        print("[ERROR] Pipeline not loaded. Pass --pipeline-config or start "
-              "server with --load-pipeline.")
+    if not proxy.is_pipeline_loaded():
+        print("[ERROR] Pipeline not loaded on server. "
+              "Start the server with --load-pipeline --pipeline-config CONFIG.json.")
         sys.exit(1)
+    print("[INFO] Pipeline is loaded on server.")
 
     img1 = Image.open(input1).convert("RGB")
     img2 = Image.open(input2).convert("RGB")

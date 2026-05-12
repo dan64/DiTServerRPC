@@ -2,16 +2,9 @@
 :: =============================================================================
 :: run_client_example.cmd  —  DiT Colorize RPC Client example launcher (Windows)
 ::
-:: Usage:
-::   run_client_example.cmd          -> uses fp4 config (RTX 50-Series / Blackwell)
-::   run_client_example.cmd int4     -> uses int4 config (RTX 30 / 40-Series)
-::   run_client_example.cmd fp4      -> same as no argument
-::
-:: The client will:
-::   1. Connect to the running dit_rpc_server instance
-::   2. Load the pipeline if not already loaded on the server
-::   3. Colorize assets\santa_bw.png
-::   4. Save the result as assets\santa_colorized.png
+:: The client connects to a running dit_rpc_server instance and colorizes
+:: assets\santa_bw.png, saving the result as assets\santa_colorized.png.
+:: The pipeline must already be loaded on the server.
 ::
 :: Edit the USER CONFIGURATION block below before first use.
 :: =============================================================================
@@ -49,37 +42,16 @@ set STEPS=2
 set USE_SHM=0
 
 :: ---------------------------------------------------------------------------
-:: ARGUMENT PARSING — selects fp4 or int4 config
-:: ---------------------------------------------------------------------------
-set PRECISION=%~1
-if /i "%PRECISION%"=="" set PRECISION=fp4
-if /i "%PRECISION%"=="fp4"  set CONFIG_FILE=qwen_config_fp4.json
-if /i "%PRECISION%"=="int4" set CONFIG_FILE=qwen_config_int4.json
-
-if "%CONFIG_FILE%"=="" (
-    echo [ERROR] Unknown precision argument: "%PRECISION%". Use "fp4" or "int4".
-    pause
-    exit /b 1
-)
-
-:: ---------------------------------------------------------------------------
 :: RESOLVE PATHS
 :: ---------------------------------------------------------------------------
 if "%CLIENT_DIR%"=="" set CLIENT_DIR=%~dp0
 if "%CLIENT_DIR:~-1%"=="\" set CLIENT_DIR=%CLIENT_DIR:~0,-1%
 
 set CLIENT_SCRIPT=%CLIENT_DIR%\dit_client_example.py
-set CONFIG_PATH=%CLIENT_DIR%\%CONFIG_FILE%
 
 if not exist "%CLIENT_SCRIPT%" (
     echo [ERROR] dit_client_example.py not found in: %CLIENT_DIR%
     echo         Set CLIENT_DIR to the correct directory.
-    pause
-    exit /b 1
-)
-
-if not exist "%CONFIG_PATH%" (
-    echo [ERROR] Config file not found: %CONFIG_PATH%
     pause
     exit /b 1
 )
@@ -108,8 +80,6 @@ set PYTHON_EXE=python
 :: ---------------------------------------------------------------------------
 echo ============================================================
 echo  DiT Colorize RPC Client — example
-echo  Precision   : %PRECISION%
-echo  Config      : %CONFIG_PATH%
 echo  Server      : %HOST%:%PORT%
 echo  Transport   : %USE_SHM% (0=RPC 1=shared memory)
 echo  Input       : %CLIENT_DIR%\assets\santa_bw.png
@@ -118,9 +88,9 @@ echo ============================================================
 echo.
 
 if "%USE_SHM%"=="1" (
-    "%PYTHON_EXE%" "%CLIENT_SCRIPT%" --host %HOST% --port %PORT% --pipeline-config "%CONFIG_PATH%" --prompt "%PROMPT%" --img-size %IMG_SIZE% --steps %STEPS% --use-shm
+    "%PYTHON_EXE%" "%CLIENT_SCRIPT%" --host %HOST% --port %PORT% --prompt "%PROMPT%" --img-size %IMG_SIZE% --steps %STEPS% --use-shm
 ) else (
-    "%PYTHON_EXE%" "%CLIENT_SCRIPT%" --host %HOST% --port %PORT% --pipeline-config "%CONFIG_PATH%" --prompt "%PROMPT%" --img-size %IMG_SIZE% --steps %STEPS%
+    "%PYTHON_EXE%" "%CLIENT_SCRIPT%" --host %HOST% --port %PORT% --prompt "%PROMPT%" --img-size %IMG_SIZE% --steps %STEPS%
 )
 
 echo.
@@ -130,3 +100,4 @@ if %errorlevel%==0 (
     echo [ERROR] Client exited with code %errorlevel%.
 )
 pause
+

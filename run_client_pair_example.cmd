@@ -44,37 +44,16 @@ set GAP_PX=8
 set USE_SHM=0
 
 :: ---------------------------------------------------------------------------
-:: ARGUMENT PARSING — selects fp4 or int4 config
-:: ---------------------------------------------------------------------------
-set PRECISION=%~1
-if /i "%PRECISION%"=="" set PRECISION=fp4
-if /i "%PRECISION%"=="fp4"  set CONFIG_FILE=qwen_config_fp4.json
-if /i "%PRECISION%"=="int4" set CONFIG_FILE=qwen_config_int4.json
-
-if "%CONFIG_FILE%"=="" (
-    echo [ERROR] Unknown precision argument: "%PRECISION%". Use "fp4" or "int4".
-    pause
-    exit /b 1
-)
-
-:: ---------------------------------------------------------------------------
 :: RESOLVE PATHS
 :: ---------------------------------------------------------------------------
 if "%CLIENT_DIR%"=="" set CLIENT_DIR=%~dp0
 if "%CLIENT_DIR:~-1%"=="\" set CLIENT_DIR=%CLIENT_DIR:~0,-1%
 
 set CLIENT_SCRIPT=%CLIENT_DIR%\dit_client_pair_example.py
-set CONFIG_PATH=%CLIENT_DIR%\%CONFIG_FILE%
 
 if not exist "%CLIENT_SCRIPT%" (
     echo [ERROR] dit_client_pair_example.py not found in: %CLIENT_DIR%
     echo         Set CLIENT_DIR to the correct directory.
-    pause
-    exit /b 1
-)
-
-if not exist "%CONFIG_PATH%" (
-    echo [ERROR] Config file not found: %CONFIG_PATH%
     pause
     exit /b 1
 )
@@ -103,10 +82,8 @@ set PYTHON_EXE=python
 :: ---------------------------------------------------------------------------
 echo ============================================================
 echo  DiT Colorize RPC Client — paired inference example
-echo  Precision   : %PRECISION%
-echo  Config      : %CONFIG_PATH%
-echo  Transport   : %USE_SHM% (0=RPC 1=shared memory)
 echo  Server      : %HOST%:%PORT%
+echo  Transport   : %USE_SHM% (0=RPC 1=shared memory)
 echo  Input 1     : %CLIENT_DIR%\assets\sample1_bw.jpg
 echo  Input 2     : %CLIENT_DIR%\assets\sample2_bw.jpg
 echo  Output 1    : %CLIENT_DIR%\assets\sample1_colorized.jpg
@@ -115,9 +92,9 @@ echo ============================================================
 echo.
 
 if "%USE_SHM%"=="1" (
-    "%PYTHON_EXE%" "%CLIENT_SCRIPT%" --host %HOST% --port %PORT% --pipeline-config "%CONFIG_PATH%" --prompt "%PROMPT%" --gap-px %GAP_PX% --use-shm
+    "%PYTHON_EXE%" "%CLIENT_SCRIPT%" --host %HOST% --port %PORT% --prompt "%PROMPT%" --gap-px %GAP_PX% --use-shm
 ) else (
-    "%PYTHON_EXE%" "%CLIENT_SCRIPT%" --host %HOST% --port %PORT% --pipeline-config "%CONFIG_PATH%" --prompt "%PROMPT%" --gap-px %GAP_PX%
+    "%PYTHON_EXE%" "%CLIENT_SCRIPT%" --host %HOST% --port %PORT% --prompt "%PROMPT%" --gap-px %GAP_PX%
 )
 
 echo.

@@ -394,19 +394,22 @@ Both clients support two transport modes selectable via `--use-shm`:
 | Standard RPC  | _(default)_ | Any deployment, including remote server     | ~5.25s/image                       |
 | Shared memory | `--use-shm` | Server and client on the **same host** only | ~4.06s/image (**~23% faster**)     |
 
+> The pipeline must be loaded on the server before running the clients.
+> Start the server with `--load-pipeline --pipeline-config CONFIG.json`.
+
 ### Single frame — `dit_client_example.py`
 
 Colorizes `assets/santa_bw.png` and saves the result as `assets/santa_colorized.png`.
 
 ```bash
 # standard RPC — works with local and remote server
-python dit_client_example.py --pipeline-config qwen_config_fp4.json
+python dit_client_example.py
 
 # shared memory — same-host only, lower latency
-python dit_client_example.py --pipeline-config qwen_config_fp4.json --use-shm
+python dit_client_example.py --use-shm
 ```
 
-Windows: `run_client_example.cmd [fp4|int4]`
+Windows: `run_client_example.cmd`
 To enable shared memory edit `run_client_example.cmd` and set `USE_SHM=1`.
 
 ---
@@ -422,13 +425,13 @@ Combined with shared memory transport this reaches ~4.06s/image.
 
 ```bash
 # standard RPC
-python dit_client_pair_example.py --pipeline-config qwen_config_fp4.json
+python dit_client_pair_example.py
 
 # shared memory — same-host only
-python dit_client_pair_example.py --pipeline-config qwen_config_fp4.json --use-shm
+python dit_client_pair_example.py --use-shm
 ```
 
-Windows: `run_client_pair_example.cmd [fp4|int4]`
+Windows: `run_client_pair_example.cmd`
 To enable shared memory edit `run_client_pair_example.cmd` and set `USE_SHM=1`.
 
 ### Full list of arguments (both clients)
@@ -436,7 +439,6 @@ To enable shared memory edit `run_client_pair_example.cmd` and set `USE_SHM=1`.
 ```
   --host HOST                  Server host (default: 127.0.0.1)
   --port PORT                  Server port (default: 8765)
-  --pipeline-config CONFIG     Load pipeline before colorizing (skipped if already loaded)
   --prompt PROMPT              Text prompt for the model
   --use-shm                    Use shared memory transport (same-host only)
 ```
@@ -518,8 +520,8 @@ Client                                     Server
 **From the command line:**
 
 ```bash
-python dit_client_pair_example.py --pipeline-config qwen_config_fp4.json --use-shm
-python dit_client_example.py      --pipeline-config qwen_config_fp4.json --use-shm
+python dit_client_pair_example.py --use-shm
+python dit_client_example.py      --use-shm
 ```
 
 **From the Windows `.cmd` launchers**, edit the user configuration block and set:

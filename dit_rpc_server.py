@@ -126,6 +126,14 @@ class ColorizeRequestHandler(SimpleXMLRPCRequestHandler):
     """
     protocol_version = "HTTP/1.1"
 
+    def setup(self):
+        """Log client connection once per TCP session."""
+        super().setup()
+        logging.info(
+            "Connection opened  %s:%s",
+            self.client_address[0],
+            self.client_address[1],
+        )
 
 class ThreadedXMLRPCServer(ThreadingMixIn, SimpleXMLRPCServer):
     daemon_threads = True

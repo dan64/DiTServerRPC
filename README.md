@@ -1,7 +1,7 @@
 # DiT Colorize RPC Server
 
 An XML-RPC server that exposes a GPU-accelerated colorization pipeline for black-and-white images and video frames.
-Built on top of the [Nunchaku](https://github.com/mit-han-lab/nunchaku) SVDQuant FP4/INT4 transformer and the `Qwen-Image-Edit-2511` diffusion model.
+Built on top of the [Nunchaku](https://github.com/nunchaku-ai/nunchaku) SVDQuant FP4/INT4 transformer and the `Qwen-Image-Edit-2511` diffusion model.
 
 **Optimized for NVIDIA RTX 50-Series (Blackwell) & CUDA 12.8.**
 
@@ -58,7 +58,7 @@ Verify: `git --version`
 
 ### Python 3.12
 
-**Windows**: download the installer from [python.org/downloads](https://www.python.org/downloads/).
+**Windows**: download the installer from [python.org/downloads](https://www.python.org/downloads/windows/).
 During installation, check **"Add Python to PATH"** — without this, `python` will not be
 recognized in the terminal.
 

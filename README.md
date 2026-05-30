@@ -9,13 +9,13 @@ Built on top of the [Nunchaku](https://github.com/nunchaku-ai/nunchaku) SVDQuant
 
 ## ✨ Features
 
-- 🎨 **Batch colorization** — process entire directories of B&W images via filesystem paths
-- 🖼️ **Paired inference** — colorize two images in a single forward pass (faster, temporally consistent)
-- 📡 **In-memory RPC** — pass raw PNG frames over XML-RPC without touching the filesystem (ideal for video pipelines)
-- ⚡ **4-step lightning model** — SVDQuant FP4 quantized transformer for maximum throughput
-- 🔒 **Thread-safe** — pipeline loading and stop control are protected by locks; every RPC call runs in its own thread
-- ⚙️ **Startup preload** — optional `--load-pipeline` flag loads the model at boot from a JSON config file
-- 🚀 **Shared memory transport** — zero-copy image transfer for same-host deployments (~23% faster than standard RPC)
+- 🎨 **Batch colorization** : process entire directories of B&W images via filesystem paths
+- 🖼️ **Paired inference** : colorize two images in a single forward pass (faster, temporally consistent)
+- 📡 **In-memory RPC** : pass raw PNG frames over XML-RPC without touching the filesystem (ideal for video pipelines)
+- ⚡ **4-step lightning model** : SVDQuant FP4 quantized transformer for maximum throughput
+- 🔒 **Thread-safe** : pipeline loading and stop control are protected by locks; every RPC call runs in its own thread
+- ⚙️ **Startup preload** : optional `--load-pipeline` flag loads the model at boot from a JSON config file
+- 🚀 **Shared memory transport** : zero-copy image transfer for same-host deployments (~23% faster than standard RPC)
 
 ---
 
@@ -42,7 +42,7 @@ Before setting up the project environment, make sure both Git and Python 3.12 ar
 ### Git
 
 **Windows**: download and install [Git for Windows](https://git-scm.com/download/win).
-Accept the default options — in particular keep `core.autocrlf=true` (the default),
+Accept the default options : in particular keep `core.autocrlf=true` (the default),
 which ensures correct line endings for `.cmd` files.
 
 **Linux**:
@@ -59,7 +59,7 @@ Verify: `git --version`
 ### Python 3.12
 
 **Windows**: download the installer from [python.org/downloads](https://www.python.org/downloads/windows/).
-During installation, check **"Add Python to PATH"** — without this, `python` will not be
+During installation, check **"Add Python to PATH"** : without this, `python` will not be
 recognized in the terminal.
 
 **Linux**:
@@ -75,9 +75,9 @@ Verify: `python --version` (Windows) or `python3.12 --version` (Linux)
 
 ## ⚙️ Environment Setup
 
-### 1 — Clone the repository and create a virtual environment
+### 1 : Clone the repository and create a virtual environment
 
-Clone the repository with git — this ensures correct line endings for all files
+Clone the repository with git : this ensures correct line endings for all files
 (`.gitattributes` is applied automatically at checkout):
 
 ```bash
@@ -100,7 +100,7 @@ source .venv/bin/activate
 
 ---
 
-### 2 — Install PyTorch 2.9.1 + CUDA 12.8
+### 2 : Install PyTorch 2.9.1 + CUDA 12.8
 
 Use the **stable** build for all GPU generations (RTX 30 / 40 / 50):
 
@@ -117,9 +117,9 @@ python -c "import torch; print(torch.__version__); print(torch.cuda.is_available
 
 ---
 
-### 3 — Install Nunchaku
+### 3 : Install Nunchaku
 
-> ⚠️ **Do NOT use `pip install nunchaku`** — that installs an unrelated package from PyPI
+> ⚠️ **Do NOT use `pip install nunchaku`** : that installs an unrelated package from PyPI
 > with the same name that will fail with `ModuleNotFoundError: No module named 'nunchaku.models'`.
 
 Install the correct MIT Han Lab build directly from the GitHub release:
@@ -133,14 +133,14 @@ For other platforms or Python versions, browse the full list of available wheels
 [Nunchaku releases page](https://github.com/nunchaku-ai/nunchaku/releases/tag/v1.2.1)
 and replace the filename accordingly.
 
-Verify the correct package is installed — the version string must contain the build tags:
+Verify the correct package is installed : the version string must contain the build tags:
 
 ```bash
 pip show nunchaku
 # Expected: Version: 1.2.1+cu12.8torch2.9
 ```
 
-### 4 — Patch Nunchaku
+### 4 : Patch Nunchaku
 
 Nunchaku 1.2.1 contains a bug in its transformer forward pass: `txt_seq_lens` is always
 `None` at the point where it is passed to `pos_embed`, causing a `ValueError` with
@@ -173,7 +173,7 @@ python patch_nunchaku.py --revert
 
 ---
 
-### 5 — Install Diffusers
+### 5 : Install Diffusers
 
 > ⚠️ **Do NOT install diffusers from GitHub (`pip install git+https://...`).**
 > Nunchaku 1.2.1 requires exactly `0.37.0.dev0`. Later dev builds (≥ 0.39.0) changed
@@ -195,7 +195,7 @@ python -c "import diffusers; print(diffusers.__version__)"
 
 ---
 
-### 6 — Install remaining dependencies
+### 6 : Install remaining dependencies
 
 Pin the versions to match the tested working environment:
 
@@ -207,7 +207,7 @@ pip install \
     Pillow>=10.0.0
 ```
 
-> `safetensors` is intentionally not pinned here — diffusers pulls the correct version
+> `safetensors` is intentionally not pinned here : diffusers pulls the correct version
 > automatically as a dependency (`>=0.8.0-rc.0`).
 
 ---
@@ -218,16 +218,16 @@ pip install \
 dit-colorize-rpc/
 ├── dit_rpc_server.py            # XML-RPC server (entry point)
 ├── dit_colorize_main.py         # Colorization pipeline and image utilities
-├── dit_client_example.py        # Example RPC client — single frame
-├── dit_client_pair_example.py   # Example RPC client — paired inference
+├── dit_client_example.py        # Example RPC client : single frame
+├── dit_client_pair_example.py   # Example RPC client : paired inference
 ├── patch_nunchaku.py            # Compatibility patch for nunchaku 1.2.1
 ├── qwen_config_fp4.json         # Config for RTX 50-Series (FP4)
 ├── qwen_config_int4.json        # Config for RTX 30 / 40-Series (INT4)
 ├── install.cmd                  # Windows automated installer
-├── start_server.cmd             # Windows launcher — server
-├── run_client_example.cmd       # Windows launcher — single frame example
-├── run_client_pair_example.cmd  # Windows launcher — paired inference example
-├── patch_nunchaku.cmd           # Windows launcher — nunchaku patch
+├── start_server.cmd             # Windows launcher : server
+├── run_client_example.cmd       # Windows launcher : single frame example
+├── run_client_pair_example.cmd  # Windows launcher : paired inference example
+├── patch_nunchaku.cmd           # Windows launcher : nunchaku patch
 ├── assets/
 │   ├── santa_bw.png             # Sample B&W image (single frame test)
 │   ├── sample1_bw.jpg           # Sample B&W image 1 (paired inference test)
@@ -243,7 +243,7 @@ dit-colorize-rpc/
 
 Two ready-to-use config files are provided. Pick the one that matches your GPU and pass it to `--pipeline-config`.
 
-### `qwen_config_fp4.json` — RTX 50-Series (Blackwell)
+### `qwen_config_fp4.json` : RTX 50-Series (Blackwell)
 
 ```json
 {
@@ -256,7 +256,7 @@ Two ready-to-use config files are provided. Pick the one that matches your GPU a
 }
 ```
 
-### `qwen_config_int4.json` — RTX 30 / 40-Series (Ampere / Ada Lovelace)
+### `qwen_config_int4.json` : RTX 30 / 40-Series (Ampere / Ada Lovelace)
 
 ```json
 {
@@ -270,7 +270,7 @@ Two ready-to-use config files are provided. Pick the one that matches your GPU a
 ```
 
 > ⚠️ **`model_precision`**: use `"fp4"` only on RTX 50-Series (Blackwell). On RTX 30 / 40-Series
-> use `"int4"` — FP4 kernels require sm_120 and will fail on older architectures.
+> use `"int4"` : FP4 kernels require sm_120 and will fail on older architectures.
 
 ### Key reference
 
@@ -278,8 +278,8 @@ Two ready-to-use config files are provided. Pick the one that matches your GPU a
 | ----------------------- | -------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `model_name`            | ✅        | Must be `"nunchaku-qwen"`                                                                                                                                                                                                                      |
 | `model_precision`       | ✅        | `"fp4"` (RTX 50) or `"int4"` (RTX 30/40)                                                                                                                                                                                                       |
-| `model_rank`            | ✅        | SVD rank — `"32"` is a good default                                                                                                                                                                                                            |
-| `model_inference_steps` | ✅        | Diffusion steps used to **select the model file** to download — must be `"4"` (no 2-step model file exists). To run inference faster, pass `steps=2` in the RPC call — this is independent of the downloaded model and reduces latency by ~40% |
+| `model_rank`            | ✅        | SVD rank : `"32"` is a good default                                                                                                                                                                                                            |
+| `model_inference_steps` | ✅        | Diffusion steps used to **select the model file** to download : must be `"4"` (no 2-step model file exists). To run inference faster, pass `steps=2` in the RPC call : this is independent of the downloaded model and reduces latency by ~40% |
 | `cache_dir`             | ➖        | HuggingFace cache directory. Omit or set to `""` to use the default (`~/.cache/huggingface`)                                                                                                                                                   |
 | `full_model_path`       | ➖        | Absolute path to a local `.safetensors` file. Omit or set to `""` to download from HuggingFace                                                                                                                                                 |
 
@@ -287,7 +287,7 @@ Two ready-to-use config files are provided. Pick the one that matches your GPU a
 
 ## 🚀 Usage
 
-### Start the server (no preload — pipeline loaded later via RPC)
+### Start the server (no preload : pipeline loaded later via RPC)
 
 ```bash
 python dit_rpc_server.py
@@ -359,7 +359,7 @@ All methods return a `dict` with at least `{"ok": bool, "msg": str}`.
 | `clear_stop()`        | `bool`  | Reset the stop flag before a new batch          |
 | `is_stop_requested()` | `bool`  | Check the current stop flag                     |
 
-### Colorization — filesystem-based
+### Colorization : filesystem-based
 
 | Method                                                                 | Returns                               | Description                                  |
 | ---------------------------------------------------------------------- | ------------------------------------- | -------------------------------------------- |
@@ -367,7 +367,7 @@ All methods return a `dict` with at least `{"ok": bool, "msg": str}`.
 | `colorize_image_pair(img1_path, img2_path, out_dir, prompt, gap_px=8)` | `{"ok", "elapsed", "msg"}`            | Two images, single inference pass            |
 | `colorize_single_image(img_path, out_dir, prompt)`                     | `{"ok", "elapsed", "msg"}`            | Single image fallback (odd batch end)        |
 
-### Colorization — in-memory (PNG bytes over RPC)
+### Colorization : in-memory (PNG bytes over RPC)
 
 | Method                                                        | Returns                                                              | Description                       |
 | ------------------------------------------------------------- | -------------------------------------------------------------------- | --------------------------------- |
@@ -377,7 +377,7 @@ All methods return a `dict` with at least `{"ok": bool, "msg": str}`.
 > `skipped=True` means the frame was too dark to colorize (average brightness < 9/255).
 > The returned `data` field contains the unchanged input in that case.
 
-### Colorization — shared memory (same-host only, zero-copy)
+### Colorization : shared memory (same-host only, zero-copy)
 
 | Method                                                                                            | Returns                                            | Description                                         |
 | ------------------------------------------------------------------------------------------------- | -------------------------------------------------- | --------------------------------------------------- |
@@ -400,15 +400,15 @@ Both clients support two transport modes selectable via `--use-shm`:
 > The pipeline must be loaded on the server before running the clients.
 > Start the server with `--load-pipeline --pipeline-config CONFIG.json`.
 
-### Single frame — `dit_client_example.py`
+### Single frame : `dit_client_example.py`
 
 Colorizes `assets/santa_bw.png` and saves the result as `assets/santa_colorized.png`.
 
 ```bash
-# standard RPC — works with local and remote server
+# standard RPC : works with local and remote server
 python dit_client_example.py
 
-# shared memory — same-host only, lower latency
+# shared memory : same-host only, lower latency
 python dit_client_example.py --use-shm
 ```
 
@@ -417,7 +417,7 @@ To enable shared memory edit `run_client_example.cmd` and set `USE_SHM=1`.
 
 ---
 
-### Paired inference — `dit_client_pair_example.py`
+### Paired inference : `dit_client_pair_example.py`
 
 Colorizes `assets/sample1_bw.jpg` and `assets/sample2_bw.jpg` in a **single forward
 pass**, saving `assets/sample1_colorized.jpg` and `assets/sample2_colorized.jpg`.
@@ -430,7 +430,7 @@ Combined with shared memory transport this reaches ~4.06s/image.
 # standard RPC
 python dit_client_pair_example.py
 
-# shared memory — same-host only
+# shared memory : same-host only
 python dit_client_pair_example.py --use-shm
 ```
 
@@ -473,7 +473,7 @@ dimensions, prompt) travels over the XML-RPC socket.
 **Requirement: server and client must run on the same machine.**
 
 If the server is on a dedicated GPU machine and the client is on a separate workstation,
-shared memory is not available — use the standard RPC transport instead (default).
+shared memory is not available : use the standard RPC transport instead (default).
 The clients detect this automatically: passing `--use-shm` when the host is not
 `127.0.0.1` / `localhost` prints a warning and falls back to standard RPC.
 
@@ -487,7 +487,7 @@ Measured on a 1480×1080 pixel pair (RTX 5070 Ti, FP4, paired inference):
 | Shared memory      | ~4.06s          | ~0.16s                |
 | **Gain**           | **~23% faster** | **~7× less overhead** |
 
-The round-trip overhead with shared memory is essentially zero — the 0.16s gap between
+The round-trip overhead with shared memory is essentially zero : the 0.16s gap between
 inference time and wall-clock time is just Python function call and numpy overhead.
 
 On a 100k-frame video processed as pairs (50k inference calls) the cumulative saving is:
@@ -499,7 +499,7 @@ On a 100k-frame video processed as pairs (50k inference calls) the cumulative sa
 ### How the protocol works
 
 The **client** owns and manages all shared memory segments. The server is fully
-stateless with respect to shared memory — it only attaches, reads/writes, and detaches.
+stateless with respect to shared memory : it only attaches, reads/writes, and detaches.
 
 ```
 Client                                     Server

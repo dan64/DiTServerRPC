@@ -163,6 +163,4 @@ cython_debug/
 
 # Project Folders 
 dist
-weights
-models
 temp/

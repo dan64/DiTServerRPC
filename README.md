@@ -27,23 +27,23 @@ Choose the backend that matches your hardware:
 
 ### nunchaku-qwen : 4 sec/frame (FP4/INT4)
 
-| Requirement      | Details                                  |
-| ---------------- | ---------------------------------------- |
-| **GPU**          | NVIDIA RTX 30/40/50  (16 GB+ VRAM)        |
-| **RAM**          | 64 GB+                                   |
-| **CUDA**         | 12.8 or newer                            |
-| **CUDA Toolkit** | Must match the PyTorch build             |
+| Requirement      | Details                            |
+| ---------------- | ---------------------------------- |
+| **GPU**          | NVIDIA RTX 30/40/50  (16 GB+ VRAM) |
+| **RAM**          | 64 GB+                             |
+| **CUDA**         | 12.8 or newer                      |
+| **CUDA Toolkit** | Must match the PyTorch build       |
 
 > **RTX 30/40-Series (Ampere / Ada)**: use `"model_precision": "int4"`. FP4 requires Blackwell (RTX 50).
 > Requires Nunchaku 1.2.1 and `diffusers==0.37.0.dev0` (wheel included in `packages/`).
 
-### gguf-qwen : 12 sec/frame (Q3_K_S, Q4_K_M, Q5_K_M, Q6_K, Q8_0)
+### gguf-qwen : 14 sec/frame (Q3, Q4, Q5, Q6, Q8)
 
-| Requirement | Details                                  |
-| ----------- | ---------------------------------------- |
-| **GPU**     | NVIDIA RTX 30/40/50  (12 GB+ VRAM)        |
-| **RAM**     | 32 GB+                                   |
-| **CUDA**    | 12.8+ (or CPU-only: slower, zero VRAM)   |
+| Requirement | Details                                |
+| ----------- | -------------------------------------- |
+| **GPU**     | NVIDIA RTX 30/40/50  (12 GB+ VRAM)     |
+| **RAM**     | 32 GB+                                 |
+| **CUDA**    | 12.8+ (or CPU-only: slower, zero VRAM) |
 
 > **Q3_K_S** fits in 12 GB VRAM. **Q4_K_M** (default) balances quality and VRAM.
 > **Q5_K_M / Q6_K** improve fidelity at higher VRAM cost. **Q8_0** is near-lossless.
@@ -52,10 +52,10 @@ Choose the backend that matches your hardware:
 
 ### Both backends
 
-| Requirement | Details                  |
-| ----------- | ------------------------ |
-| **OS**      | Windows 10/11 or Linux   |
-| **Python**  | 3.12                     |
+| Requirement | Details                |
+| ----------- | ---------------------- |
+| **OS**      | Windows 10/11 or Linux |
+| **Python**  | 3.12                   |
 
 ---
 
@@ -239,9 +239,9 @@ pip install \
 
 > **Nunchaku users**: `diffusers` was already installed in step 5 as the compatible
 > `0.37.0.dev0` wheel. Do NOT upgrade it  :  nunchaku 1.2.1 requires exactly that version.
->
+> 
 > `safetensors` is pulled automatically by diffusers.
->
+> 
 > `scipy`, `av`, and `torchsde` are required by the diffusers pipeline.
 > `gguf`, `comfy-aimdo`, and `comfy-kitchen` are required by the GGUF backend.
 
@@ -314,21 +314,18 @@ Pick the one that matches your hardware and pass it to `--pipeline-config`.
 Five quantization levels are available. All share the same structure with
 `model_name: "gguf-qwen"` and a `quant` field that selects the quantization:
 
-| Config file               | `quant` | UNet                                | CLIP                                |
-| ------------------------- | ------- | ----------------------------------- | ----------------------------------- |
-| `qwen_gguf_q3.json`       | `"q3"`  | `…Q3_K_S.gguf`                      | `…Q3_K_S.gguf`                      |
-| `qwen_gguf_q4.json`       | `"q4"`  | `…Q4_K_M.gguf`                      | `…Q4_K_M.gguf`                      |
-| `qwen_gguf_q5.json`       | `"q5"`  | `…Q5_K_M.gguf`                      | `…Q5_K_M.gguf`                      |
-| `qwen_gguf_q6.json`       | `"q6"`  | `…Q6_K.gguf`                        | `…Q6_K.gguf`                        |
-| `qwen_gguf_q8.json`       | `"q8"`  | `…Q8_0.gguf`                        | `…Q8_0.gguf`                        |
+| Config file         | `quant` | UNet           | CLIP           |
+| ------------------- | ------- | -------------- | -------------- |
+| `qwen_gguf_q3.json` | `"q3"`  | `…Q3_K_S.gguf` | `…Q3_K_S.gguf` |
+| `qwen_gguf_q4.json` | `"q4"`  | `…Q4_K_M.gguf` | `…Q4_K_M.gguf` |
+| `qwen_gguf_q5.json` | `"q5"`  | `…Q5_K_M.gguf` | `…Q5_K_M.gguf` |
+| `qwen_gguf_q6.json` | `"q6"`  | `…Q6_K.gguf`   | `…Q6_K.gguf`   |
+| `qwen_gguf_q8.json` | `"q8"`  | `…Q8_0.gguf`   | `…Q8_0.gguf`   |
 
-> **Q4 is the recommended default** : good quality/VRAM balance.
+> **Q4 is the recommended default** : good quality/VRAM balance, but even Q3 is capable of delivering frames with acceptable colors.
 > All quants share the same VAE, mmproj, and LoRA files (auto-downloaded from HuggingFace).
 
-> **⚠️ The GGUF backend is experimental.** In some cases spurious artifacts may
-> appear in the colorized output that are not present in the source image or in the
-> `nunchaku-qwen` result. For production use, prefer `nunchaku-qwen` (FP4/INT4)
-> which is not affected by such problems.
+> **⚠️ The GGUF backend is experimental.** In some cases the colors may be faded or spurious artifacts may appear in the colorized output that are not present in the source image. For production use, prefer `nunchaku-qwen` (FP4/INT4) which is not affected by such problems.
 
 Config example (`config/qwen_gguf_q4.json`):
 
@@ -359,20 +356,21 @@ The LoRA file `Qwen-Image-Edit-2511-Lightning-4steps-V1.0-bf16.safetensors` enab
 The LoRA is merged statically (not applied as an adapter), so there is no runtime overhead.
 
 ### Key reference
-| Key                     | Required | Description                                                                                                                                                                                                                                    |
-| ----------------------- | -------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `model_name`            | ✅        | `"nunchaku-qwen"` or `"gguf-qwen"`                                                                                                                                                                                                             |
-| `quant`                 |          | **GGUF only**: quantization level (`"q3"`, `"q4"`, `"q5"`, `"q6"`, `"q8"`). Default: `"q4"` |
-| `model_precision`       | ✅        | **Nunchaku**: `"fp4"` (RTX 50) or `"int4"` (RTX 30/40). **GGUF**: not used |
-| `unet_gguf` / `clip_gguf` / `mmproj_gguf` | ✅ | **GGUF only**: local paths to the GGUF model files |
-| `model_rank`            |          | **Nunchaku**: SVD rank (`"32"`). **GGUF**: not used |
-| `model_inference_steps` |          | **Nunchaku**: diffusion steps (`"4"`). **GGUF**: not used |
-| `cache_dir`             |           | HuggingFace cache directory. Leave empty to use the default `~/.cache/huggingface` |
-| `full_model_path`       |           | **Nunchaku**: local path to the transformer checkpoint. **GGUF**: not used |
-| `lora_path`             |           | **GGUF only**: path to the Lightning 4-step LoRA (`.safetensors`). Omit to skip LoRA merging |
-| `steps`                 |           | **GGUF only**: inference steps (`4` with LoRA, `20` without) |
-| `vae_name`              |           | **GGUF only**: VAE filename |
-| `hf_*`                  |           | **GGUF only**: HuggingFace repo names for auto-download |
+
+| Key                                       | Required | Description                                                                                  |
+| ----------------------------------------- | -------- | -------------------------------------------------------------------------------------------- |
+| `model_name`                              | ✅        | `"nunchaku-qwen"` or `"gguf-qwen"`                                                           |
+| `quant`                                   |          | **GGUF only**: quantization level (`"q3"`, `"q4"`, `"q5"`, `"q6"`, `"q8"`). Default: `"q4"`  |
+| `model_precision`                         | ✅        | **Nunchaku**: `"fp4"` (RTX 50) or `"int4"` (RTX 30/40). **GGUF**: not used                   |
+| `unet_gguf` / `clip_gguf` / `mmproj_gguf` | ✅        | **GGUF only**: local paths to the GGUF model files                                           |
+| `model_rank`                              |          | **Nunchaku**: SVD rank (`"32"`). **GGUF**: not used                                          |
+| `model_inference_steps`                   |          | **Nunchaku**: diffusion steps (`"4"`). **GGUF**: not used                                    |
+| `cache_dir`                               |          | HuggingFace cache directory. Leave empty to use the default `~/.cache/huggingface`           |
+| `full_model_path`                         |          | **Nunchaku**: local path to the transformer checkpoint. **GGUF**: not used                   |
+| `lora_path`                               |          | **GGUF only**: path to the Lightning 4-step LoRA (`.safetensors`). Omit to skip LoRA merging |
+| `steps`                                   |          | **GGUF only**: inference steps (`4` with LoRA, `20` without)                                 |
+| `vae_name`                                |          | **GGUF only**: VAE filename                                                                  |
+| `hf_*`                                    |          | **GGUF only**: HuggingFace repo names for auto-download                                      |
 
 ---
 
@@ -455,27 +453,27 @@ All methods return a `dict` with at least `{"ok": bool, "msg": str}`.
 
 ### Colorization : filesystem-based
 
-| Method                                                                 | Returns                               | Description                                  |
-| ---------------------------------------------------------------------- | ------------------------------------- | -------------------------------------------- |
-| `colorize_image(in_path, out_path, prompt, img_size=0, steps=2)`       | `{"ok", "elapsed", "skipped", "msg"}` | Single image, paths on the server filesystem |
-| `colorize_image_pair(img1_path, img2_path, out_dir, prompt, gap_px=8, steps=4)` | `{"ok", "elapsed", "msg"}`            | Two images, single inference pass            |
-| `colorize_single_image(img_path, out_dir, prompt, steps=4)`            | `{"ok", "elapsed", "msg"}`            | Single image fallback (odd batch end)        |
+| Method                                                                          | Returns                               | Description                                  |
+| ------------------------------------------------------------------------------- | ------------------------------------- | -------------------------------------------- |
+| `colorize_image(in_path, out_path, prompt, img_size=0, steps=2)`                | `{"ok", "elapsed", "skipped", "msg"}` | Single image, paths on the server filesystem |
+| `colorize_image_pair(img1_path, img2_path, out_dir, prompt, gap_px=8, steps=2)` | `{"ok", "elapsed", "msg"}`            | Two images, single inference pass            |
+| `colorize_single_image(img_path, out_dir, prompt, steps=2)`                     | `{"ok", "elapsed", "msg"}`            | Single image fallback (odd batch end)        |
 
 ### Colorization : in-memory (PNG bytes over RPC)
 
-| Method                                                        | Returns                                                              | Description                       |
-| ------------------------------------------------------------- | -------------------------------------------------------------------- | --------------------------------- |
-| `colorize_frame(img_data, prompt, img_size=0, steps=2)`       | `{"ok", "data", "elapsed", "skipped", "msg"}`                        | Single frame as raw PNG bytes     |
-| `colorize_frame_pair(img1_data, img2_data, prompt, gap_px=8, steps=4)` | `{"ok", "data1", "data2", "elapsed", "skipped1", "skipped2", "msg"}` | Two frames, single inference pass |
+| Method                                                                 | Returns                                                              | Description                       |
+| ---------------------------------------------------------------------- | -------------------------------------------------------------------- | --------------------------------- |
+| `colorize_frame(img_data, prompt, img_size=0, steps=2)`                | `{"ok", "data", "elapsed", "skipped", "msg"}`                        | Single frame as raw PNG bytes     |
+| `colorize_frame_pair(img1_data, img2_data, prompt, gap_px=8, steps=2)` | `{"ok", "data1", "data2", "elapsed", "skipped1", "skipped2", "msg"}` | Two frames, single inference pass |
 
 > `skipped=True` means the frame was too dark to colorize (average brightness < 9/255).
 > The returned `data` field contains the unchanged input in that case.
 
 ### Colorization : shared memory (same-host only, zero-copy)
 
-| Method                                                                                            | Returns                                            | Description                                         |
-| ------------------------------------------------------------------------------------------------- | -------------------------------------------------- | --------------------------------------------------- |
-| `colorize_frame_shm(shm_in, shm_out, h, w, prompt, img_size=0, steps=2)`                          | `{"ok", "elapsed", "skipped", "msg"}`              | Single frame via shared memory                      |
+| Method                                                                                                     | Returns                                            | Description                                         |
+| ---------------------------------------------------------------------------------------------------------- | -------------------------------------------------- | --------------------------------------------------- |
+| `colorize_frame_shm(shm_in, shm_out, h, w, prompt, img_size=0, steps=2)`                                   | `{"ok", "elapsed", "skipped", "msg"}`              | Single frame via shared memory                      |
 | `colorize_frame_pair_shm(shm_in1, shm_out1, h1, w1, shm_in2, shm_out2, h2, w2, prompt, gap_px=8, steps=4)` | `{"ok", "elapsed", "skipped1", "skipped2", "msg"}` | Two frames via shared memory, single inference pass |
 
 > See [Shared Memory Transport](#-shared-memory-transport-same-host-only) for usage details.
@@ -689,16 +687,16 @@ Edit the variables at the top of the file to match your setup, then double-click
 start_server.cmd [q3|q4|q5|q6|q8|fp4|int4]
 ```
 
-| Argument | Backend        | Quantization   | VRAM   |
-| -------- | -------------- | -------------- | ------ |
-| _(none)_ | GGUF           | Q4_K_M         | 14 GB  |
-| `q3`     | GGUF           | Q3_K_S         | 12 GB  |
-| `q4`     | GGUF           | Q4_K_M         | 14 GB  |
-| `q5`     | GGUF           | Q5_K_M         | 16 GB  |
-| `q6`     | GGUF           | Q6_K           | 18 GB  |
-| `q8`     | GGUF           | Q8_0           | 22 GB  |
-| `fp4`    | Nunchaku       | FP4            | 16 GB  |
-| `int4`   | Nunchaku       | INT4           | 16 GB  |
+| Argument | Backend  | Quantization | VRAM  |
+| -------- | -------- | ------------ | ----- |
+| _(none)_ | GGUF     | Q4_K_M       | 14 GB |
+| `q3`     | GGUF     | Q3_K_S       | 12 GB |
+| `q4`     | GGUF     | Q4_K_M       | 14 GB |
+| `q5`     | GGUF     | Q5_K_M       | 16 GB |
+| `q6`     | GGUF     | Q6_K         | 18 GB |
+| `q8`     | GGUF     | Q8_0         | 22 GB |
+| `fp4`    | Nunchaku | FP4          | 16 GB |
+| `int4`   | Nunchaku | INT4         | 16 GB |
 
 If no argument is passed it defaults to `q4` (Q4_K_M). Use `int4` for RTX 30 / 40-Series Nunchaku:
 
@@ -708,15 +706,13 @@ start_server.cmd int4
 
 **Convenience wrappers** — double-click or run from terminal without arguments:
 
-| File                    | Equivalent command                | Backend               |
-| ----------------------- | --------------------------------  | --------------------- |
-| `run_server_q3.cmd`     | `start_server.cmd q3`             | GGUF Q3_K_S           |
-| `run_server_fp4.cmd`    | `start_server.cmd fp4`            | Nunchaku FP4          |
-| `run_server_int4.cmd`   | `start_server.cmd int4`           | Nunchaku INT4         |
+| File                  | Equivalent command      | Backend       |
+| --------------------- | ----------------------- | ------------- |
+| `run_server_q3.cmd`   | `start_server.cmd q3`   | GGUF Q3_K_S   |
+| `run_server_fp4.cmd`  | `start_server.cmd fp4`  | Nunchaku FP4  |
+| `run_server_int4.cmd` | `start_server.cmd int4` | Nunchaku INT4 |
 
 ---
-
-
 
 ## 🔧 Troubleshooting
 

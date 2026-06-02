@@ -1,6 +1,6 @@
 @echo off
 :: =============================================================================
-:: patch_nunchaku.cmd  —  Nunchaku compatibility patch launcher (Windows)
+:: patch_nunchaku.cmd   :   Nunchaku compatibility patch launcher (Windows)
 ::
 :: Usage:
 ::   patch_nunchaku.cmd              -> apply the patch
@@ -11,13 +11,13 @@
 :: =============================================================================
 
 :: ---------------------------------------------------------------------------
-:: USER CONFIGURATION — adjust these variables to match your setup
+:: USER CONFIGURATION  :  adjust these variables to match your setup
 :: ---------------------------------------------------------------------------
 
 :: Conda environment name (used when PYTHON_EXE is not set)
 set CONDA_ENV=dit-colorize
 
-:: Explicit path to python.exe — leave empty to use the conda environment above
+:: Explicit path to python.exe  :  leave empty to use the conda environment above
 :: Example: set PYTHON_EXE=C:\Users\YourName\.conda\envs\dit-colorize\python.exe
 set PYTHON_EXE=
 
@@ -58,7 +58,7 @@ if %errorlevel%==0 (
         set PYTHON_EXE=python
         goto :run
     )
-    echo [WARN] conda activate failed — trying base python
+    echo [WARN] conda activate failed  :  trying base python
 )
 
 set PYTHON_EXE=python

@@ -13,7 +13,7 @@ Start on the GPU machine:
 
 Default: localhost:8765
 
-Pipeline config file (JSON) — required only with --load-pipeline:
+Pipeline config file (JSON)  :  required only with --load-pipeline:
 {
     "model_name":            "...",
     "model_precision":       "...",
@@ -45,7 +45,7 @@ if _script_dir not in sys.path:
     sys.path.insert(0, _script_dir)
 
 # ---------------------------------------------------------------------------
-# Import the colorization module — same pattern as the original GUI:
+# Import the colorization module  :  same pattern as the original GUI:
 # sys.path is already updated above, so dit_colorize_main.py will be found
 # if it lives in the same directory.  The try/except lets the server start
 # even when the module is missing (every RPC method will return an error).
@@ -53,6 +53,7 @@ if _script_dir not in sys.path:
 try:
     from dit_colorize_main import (
         load_nunchaku_pipeline,
+        load_gguf_pipeline,
         process_image,
         process_image_pair,
         process_single_image,
@@ -66,6 +67,7 @@ try:
     _DIT_MAIN_AVAILABLE = True
 except ImportError as _e:
     load_nunchaku_pipeline    = None
+    load_gguf_pipeline        = None
     process_image             = None
     process_image_pair        = None
     process_single_image      = None
@@ -135,11 +137,20 @@ class ColorizeRequestHandler(SimpleXMLRPCRequestHandler):
             self.client_address[1],
         )
 
+    def finish(self):
+        """Log client disconnection."""
+        logging.info(
+            "Connection closed  %s:%s",
+            self.client_address[0],
+            self.client_address[1],
+        )
+        super().finish()
+
 class ThreadedXMLRPCServer(ThreadingMixIn, SimpleXMLRPCServer):
     daemon_threads = True
 
     # ------------------------------------------------------------------
-    # Clean client-disconnect logging — suppress the alarming traceback
+    # Clean client-disconnect logging  :  suppress the alarming traceback
     # that socketserver prints by default when a client closes the
     # connection unexpectedly (e.g. ConnectionResetError on Windows).
     # ------------------------------------------------------------------
@@ -160,7 +171,7 @@ class ThreadedXMLRPCServer(ThreadingMixIn, SimpleXMLRPCServer):
 
 
 # ---------------------------------------------------------------------------
-# RPC service — all public methods (no leading underscore) are exposed
+# RPC service  :  all public methods (no leading underscore) are exposed
 # ---------------------------------------------------------------------------
 class ColorizeService:
     """
@@ -195,6 +206,11 @@ class ColorizeService:
         model_inference_steps: str,
         cache_dir: str = "",
         full_model_path: str = "",
+        vae_name: str = "qwen_image_vae.safetensors",
+        hf_unet: str = "",
+        hf_clip: str = "",
+        hf_vae:  str = "",
+        hf_lora: str = "",
     ) -> dict:
         """
         Load the Nunchaku/Qwen pipeline.
@@ -211,16 +227,36 @@ class ColorizeService:
                     f"Loading pipeline: {model_name} {model_precision} "
                     f"r{model_rank} steps={model_inference_steps}"
                 )
-                kwargs = dict(
-                    model_name=model_name,
-                    model_precision=model_precision,
-                    model_rank=model_rank,
-                    model_inference_steps=model_inference_steps,
-                    full_model_path=full_model_path,
-                )
-                if cache_dir and cache_dir.strip():
-                    kwargs["cache_dir"] = cache_dir.strip()
-                pipe = load_nunchaku_pipeline(**kwargs)
+                if model_name == "nunchaku-qwen":
+                    kwargs = dict(
+                        model_name=model_name,
+                        model_precision=model_precision,
+                        model_rank=model_rank,
+                        model_inference_steps=model_inference_steps,
+                        full_model_path=full_model_path,
+                        vae_name=vae_name,
+                        hf_unet=hf_unet,
+                        hf_clip=hf_clip,
+                        hf_vae=hf_vae,
+                        hf_lora=hf_lora,
+                    )
+                    if cache_dir and cache_dir.strip():
+                        kwargs["cache_dir"] = cache_dir.strip()
+                    pipe = load_nunchaku_pipeline(**kwargs)
+                elif model_name == "gguf-qwen":
+                    pipe = load_gguf_pipeline(
+                        model_name=model_name,
+                        unet_gguf_path=model_precision,
+                        clip_gguf_path=model_rank,
+                        lora_path=full_model_path,
+                        vae_name=vae_name,
+                        hf_unet=hf_unet,
+                        hf_clip=hf_clip,
+                        hf_vae=hf_vae,
+                        hf_lora=hf_lora,
+                    )
+                else:
+                    pipe = None
                 if pipe is None:
                     msg = f"Model '{model_name}' is not supported"
                     logging.warning(msg)
@@ -327,6 +363,7 @@ class ColorizeService:
         out_dir: str,
         prompt: str,
         gap_px: int = 8,
+        steps: int = 2,
     ) -> dict:
         """
         Corresponds to process_image_pair() in dit_colorize_main.py.
@@ -349,6 +386,7 @@ class ColorizeService:
                 output_dir=Path(out_dir),
                 prompt=prompt,
                 gap_px=gap_px,
+                steps=steps,
             )
             logging.info(
                 f"colorize_image_pair: {Path(img1_path).name} + "
@@ -367,6 +405,7 @@ class ColorizeService:
         img_path: str,
         out_dir: str,
         prompt: str,
+        steps: int = 2,
     ) -> dict:
         """
         Corresponds to process_single_image() in dit_colorize_main.py.
@@ -386,6 +425,7 @@ class ColorizeService:
                 img_path=Path(img_path),
                 output_dir=Path(out_dir),
                 prompt=prompt,
+                steps=steps,
             )
             logging.info(
                 f"colorize_single_image: {Path(img_path).name} -> {elapsed:.2f}s"
@@ -468,11 +508,12 @@ class ColorizeService:
         img2_data: bytes,
         prompt: str,
         gap_px: int = 8,
+        steps: int = 2,
     ) -> dict:
         """
         Colorize a pair of B&W frames with a single inference pass.
         In-memory equivalent of process_image_pair(): the two images are
-        placed side by side, processed in one forward pass, then split back —
+        placed side by side, processed in one forward pass, then split back  : 
         no filesystem access.
 
         Parameters
@@ -545,7 +586,7 @@ class ColorizeService:
             merged_input = merge_two_images_with_gap(low1, low2, gap_px=gap_px)
 
             t0 = time.perf_counter()
-            colorized_merged = _colorize_image(self._pipeline, merged_input, prompt)
+            colorized_merged = _colorize_image(self._pipeline, merged_input, prompt, steps=steps)
             elapsed = time.perf_counter() - t0
 
             # Resize back to merged-input dimensions, then split and upscale
@@ -566,10 +607,10 @@ class ColorizeService:
                     "elapsed": 0.0, "skipped1": False, "skipped2": False, "msg": str(e)}
 
     # ------------------------------------------------------------------
-    # Shared-memory colorization — same-host only, zero-copy transport
+    # Shared-memory colorization  :  same-host only, zero-copy transport
     #
     # The CLIENT owns and manages all SharedMemory segments (create/unlink).
-    # The server only attaches and detaches — no cleanup responsibility.
+    # The server only attaches and detaches  :  no cleanup responsibility.
     #
     # Protocol:
     #   1. Client creates shm_in  (h * w * 3 bytes, uint8 RGB)
@@ -670,6 +711,7 @@ class ColorizeService:
         width2: int,
         prompt: str,
         gap_px: int = 8,
+        steps: int = 2,
     ) -> dict:
         """
         Shared-memory variant of colorize_frame_pair().
@@ -750,7 +792,7 @@ class ColorizeService:
                 merged_input = merge_two_images_with_gap(low1, low2, gap_px=gap_px)
 
                 t0 = time.perf_counter()
-                colorized_merged = _colorize_image(self._pipeline, merged_input, prompt)
+                colorized_merged = _colorize_image(self._pipeline, merged_input, prompt, steps)
                 elapsed = time.perf_counter() - t0
 
                 resized = upscale_with_lanczos(colorized_merged, merged_input.size)
@@ -787,12 +829,20 @@ def _load_pipeline_config(config_path: str) -> dict:
     """
     Read and validate the JSON pipeline configuration file.
 
-    Required keys: model_name, model_precision, model_rank, model_inference_steps
-    Optional keys:
-        cache_dir       — omit or set to "" to use the HuggingFace default cache
-        full_model_path — omit or set to "" when not needed
+    Supports two formats:
 
-    Returns the config dict on success; raises SystemExit on any error.
+    New format (GGUF models):
+        {"model_name": "gguf-qwen", "quant": "q3",
+         "unet_gguf": "...", "clip_gguf": "...", "vae_name": "...",
+         "lora_path": "...", "steps": 2}
+
+    Legacy format (Nunchaku models):
+        {"model_name": "nunchaku-qwen", "model_precision": "...",
+         "model_rank": "...", "model_inference_steps": "4",
+         "full_model_path": "...", "cache_dir": "..."}
+
+    Returns a normalized dict with keys:
+        model_name, quant, unet_gguf, clip_gguf, vae_name, lora_path, steps
     """
     path = Path(config_path)
     if not path.is_file():
@@ -806,20 +856,65 @@ def _load_pipeline_config(config_path: str) -> dict:
         logging.error(f"Invalid JSON in pipeline config '{config_path}': {exc}")
         sys.exit(1)
 
-    required_keys = {
-        "model_name", "model_precision", "model_rank",
-        "model_inference_steps",
-    }
-    missing = required_keys - cfg.keys()
-    if missing:
-        logging.error(
-            f"Pipeline config is missing required keys: {', '.join(sorted(missing))}"
-        )
-        sys.exit(1)
+    model_name = cfg.get("model_name", "")
 
-    cfg.setdefault("cache_dir", "")
-    cfg.setdefault("full_model_path", "")
-    return cfg
+    # New format (gguf-qwen / nunchaku-qwen)
+    if "unet_gguf" in cfg or "quant" in cfg:
+        # New GGUF format
+        required = {"model_name", "unet_gguf", "clip_gguf", "vae_name", "steps"}
+        missing = required - cfg.keys()
+        if missing:
+            logging.error(f"Config missing keys: {', '.join(sorted(missing))}")
+            sys.exit(1)
+        return {
+            "model_name": model_name,
+            "quant": cfg.get("quant", ""),
+            "unet_gguf": cfg["unet_gguf"],
+            "clip_gguf": cfg["clip_gguf"],
+            "vae_name": cfg["vae_name"],
+            "lora_path": cfg.get("lora_path", ""),
+            "steps": int(cfg["steps"]),
+            "hf_unet": cfg.get("hf_unet", "unsloth/Qwen-Image-Edit-2511-GGUF"),
+            "hf_clip": cfg.get("hf_clip", "unsloth/Qwen2.5-VL-7B-Instruct-GGUF"),
+            "hf_vae":  cfg.get("hf_vae",  "Comfy-Org/Qwen-Image_ComfyUI"),
+            "hf_lora": cfg.get("hf_lora", "lightx2v/Qwen-Image-Edit-2511-Lightning"),
+        }
+
+    # Legacy format
+    if "model_precision" in cfg:
+        required = {"model_name", "model_precision", "model_rank", "model_inference_steps"}
+        missing = required - cfg.keys()
+        if missing:
+            logging.error(f"Config missing keys: {', '.join(sorted(missing))}")
+            sys.exit(1)
+        # Map legacy to new
+        legacy_name = model_name
+        # Extract quant from old name like "gguf-q3-qwen" → "q3"
+        quant = ""
+        parts = legacy_name.split("-")
+        if len(parts) >= 3 and parts[0] == "gguf":
+            quant = parts[1]
+            model_name = "gguf-qwen"
+        elif legacy_name.startswith("nunchaku"):
+            quant = parts[1] if len(parts) >= 2 else ""
+            model_name = "nunchaku-qwen"
+
+        return {
+            "model_name": model_name,
+            "quant": quant,
+            "unet_gguf": cfg["model_precision"],
+            "clip_gguf": cfg["model_rank"],
+            "vae_name": "qwen_image_vae.safetensors",
+            "lora_path": cfg.get("full_model_path", ""),
+            "steps": int(cfg["model_inference_steps"]),
+            "hf_unet": "unsloth/Qwen-Image-Edit-2511-GGUF",
+            "hf_clip": "unsloth/Qwen2.5-VL-7B-Instruct-GGUF",
+            "hf_vae":  "Comfy-Org/Qwen-Image_ComfyUI",
+            "hf_lora": "lightx2v/Qwen-Image-Edit-2511-Lightning",
+        }
+
+    logging.error(f"Unknown config format in '{config_path}'")
+    sys.exit(1)
 
 
 def main():
@@ -894,11 +989,16 @@ def main():
         logging.info(f"Loading pipeline from config: {args.pipeline_config}")
         result = service.load_pipeline(
             model_name=cfg["model_name"],
-            model_precision=cfg["model_precision"],
-            model_rank=cfg["model_rank"],
-            model_inference_steps=cfg["model_inference_steps"],
-            cache_dir=cfg["cache_dir"],
-            full_model_path=cfg["full_model_path"],
+            model_precision=cfg["unet_gguf"],
+            model_rank=cfg["clip_gguf"],
+            model_inference_steps=str(cfg["steps"]),
+            cache_dir="",
+            full_model_path=cfg["lora_path"],
+            vae_name=cfg.get("vae_name", "qwen_image_vae.safetensors"),
+            hf_unet=cfg.get("hf_unet", ""),
+            hf_clip=cfg.get("hf_clip", ""),
+            hf_vae=cfg.get("hf_vae", ""),
+            hf_lora=cfg.get("hf_lora", ""),
         )
         if not result["ok"]:
             logging.error(f"Failed to load pipeline: {result['msg']}")

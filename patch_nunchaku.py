@@ -90,11 +90,11 @@ def do_check(target: Path) -> None:
     state = check(target)
     print(f"File  : {target}")
     if state == "patched":
-        print("Status: already patched — nothing to do.")
+        print("Status: already patched  :  nothing to do.")
     elif state == "original":
-        print("Status: original (not yet patched) — run without --check to apply.")
+        print("Status: original (not yet patched)  :  run without --check to apply.")
     else:
-        print("Status: unknown — the expected line was not found.")
+        print("Status: unknown  :  the expected line was not found.")
         print("        The nunchaku version may differ from 1.2.1.")
     sys.exit(0)
 
@@ -103,7 +103,7 @@ def do_patch(target: Path) -> None:
     state = check(target)
 
     if state == "patched":
-        print(f"[INFO] {target.name} is already patched — nothing to do.")
+        print(f"[INFO] {target.name} is already patched  :  nothing to do.")
         sys.exit(0)
 
     if state == "unknown":

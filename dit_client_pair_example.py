@@ -3,7 +3,7 @@
 Author: Dan64
 Date: 2026-05-10
 -------------------------------------------------------------------------------
-DiT Colorize RPC Client — paired inference example
+DiT Colorize RPC Client  :  paired inference example
 Connects to a running dit_rpc_server instance and colorizes two B&W frames
 in a single inference pass.
 
@@ -34,7 +34,7 @@ from PIL import Image
 
 
 # ---------------------------------------------------------------------------
-# Helpers — standard RPC
+# Helpers  :  standard RPC
 # ---------------------------------------------------------------------------
 
 def _pil_to_bytes(img: Image.Image) -> bytes:
@@ -49,7 +49,7 @@ def _bytes_to_pil(data) -> Image.Image:
 
 
 # ---------------------------------------------------------------------------
-# Helpers — shared memory transport (same-host only)
+# Helpers  :  shared memory transport (same-host only)
 # ---------------------------------------------------------------------------
 
 def _colorize_pair_shm(proxy, img1: Image.Image, img2: Image.Image,
@@ -104,7 +104,7 @@ def _colorize_pair_shm(proxy, img1: Image.Image, img2: Image.Image,
 
 def main():
     parser = argparse.ArgumentParser(
-        description="DiT Colorize RPC Client — paired inference example",
+        description="DiT Colorize RPC Client  :  paired inference example",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
     parser.add_argument("--host", default="127.0.0.1")
@@ -178,8 +178,8 @@ def main():
     print(f"[INFO] Inference time : {elapsed:.2f}s total  ({elapsed/2:.2f}s per image)")
     print(f"[INFO] Round-trip time: {wall_time:.2f}s")
 
-    if result["skipped1"]: print("[WARN] Image 1 was too dark — output is unchanged.")
-    if result["skipped2"]: print("[WARN] Image 2 was too dark — output is unchanged.")
+    if result["skipped1"]: print("[WARN] Image 1 was too dark  :  output is unchanged.")
+    if result["skipped2"]: print("[WARN] Image 2 was too dark  :  output is unchanged.")
 
     assets_dir.mkdir(parents=True, exist_ok=True)
     out1.save(output1, quality=95)

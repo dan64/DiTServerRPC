@@ -1,14 +1,16 @@
 # DiT Colorize RPC Server
 
 An XML-RPC server that exposes a GPU-accelerated colorization pipeline for black-and-white images and video frames.
-Built on top of the [Nunchaku](https://github.com/nunchaku-ai/nunchaku) SVDQuant FP4/INT4 transformer and the `Qwen-Image-Edit-2511` diffusion model.
+Two backends, one API : pick the one that fits your hardware:
 
-**Optimized for NVIDIA RTX 50-Series (Blackwell) & CUDA 12.8.**
+- **nunchaku-qwen**: SVDQuant FP4/INT4 transformer via [Nunchaku](https://github.com/nunchaku-ai/nunchaku) : **4 sec/frame**, requires RTX 30/40/50 (16 GB VRAM) & CUDA 12.8
+- **gguf-qwen**: ComfyUI-native GGUF pipeline (Q3_K_S, Q4_K_M, Q5_K_M, Q6_K, Q8_0) : **12 sec/frame**, runs on RTX 30/40/50 (12 GB VRAM), zero ComfyUI GUI dependency
 
 ---
 
 ## ✨ Features
 
+- 📦 **Two backends, one API** : nunchaku-qwen (FP4/INT4, 4 sec/frame) for speed, gguf-qwen (Q3_K_S … Q8_0, 12 sec/frame) for lower VRAM
 - 🎨 **Batch colorization** : process entire directories of B&W images via filesystem paths
 - 🖼️ **Paired inference** : colorize two images in a single forward pass (faster, temporally consistent)
 - 📡 **In-memory RPC** : pass raw PNG frames over XML-RPC without touching the filesystem (ideal for video pipelines)
@@ -21,17 +23,39 @@ Built on top of the [Nunchaku](https://github.com/nunchaku-ai/nunchaku) SVDQuant
 
 ## 📋 Prerequisites
 
-| Requirement      | Details                                                            |
-| ---------------- | ------------------------------------------------------------------ |
-| **OS**           | Windows 10/11 or Linux                                             |
-| **Python**       | 3.12                                                               |
-| **GPU**          | NVIDIA RTX 3070 / 4070 / 5070 or better  (12 GB+ VRAM recommended) |
-| **RAM**          | 64 GB+ RAM recommended                                             |
-| **CUDA**         | 12.8 or newer                                                      |
-| **CUDA Toolkit** | Must match the PyTorch build (see below)                           |
+Choose the backend that matches your hardware:
 
-> **RTX 40-Series and older**: use `"model_precision": "int4"` in the pipeline config file.
-> FP4 quantization requires Blackwell hardware; INT4 is the correct precision for Ampere (RTX 30) and Ada Lovelace (RTX 40) GPUs.
+### nunchaku-qwen : 4 sec/frame (FP4/INT4)
+
+| Requirement      | Details                                  |
+| ---------------- | ---------------------------------------- |
+| **GPU**          | NVIDIA RTX 30/40/50  (16 GB+ VRAM)        |
+| **RAM**          | 64 GB+                                   |
+| **CUDA**         | 12.8 or newer                            |
+| **CUDA Toolkit** | Must match the PyTorch build             |
+
+> **RTX 30/40-Series (Ampere / Ada)**: use `"model_precision": "int4"`. FP4 requires Blackwell (RTX 50).
+> Requires Nunchaku 1.2.1 and `diffusers==0.37.0.dev0` (wheel included in `packages/`).
+
+### gguf-qwen : 12 sec/frame (Q3_K_S, Q4_K_M, Q5_K_M, Q6_K, Q8_0)
+
+| Requirement | Details                                  |
+| ----------- | ---------------------------------------- |
+| **GPU**     | NVIDIA RTX 30/40/50  (12 GB+ VRAM)        |
+| **RAM**     | 32 GB+                                   |
+| **CUDA**    | 12.8+ (or CPU-only: slower, zero VRAM)   |
+
+> **Q3_K_S** fits in 12 GB VRAM. **Q4_K_M** (default) balances quality and VRAM.
+> **Q5_K_M / Q6_K** improve fidelity at higher VRAM cost. **Q8_0** is near-lossless.
+> Uses ComfyUI-native code : no ComfyUI GUI installation needed.
+> Pre-made configs for all quantizations are in the `config/` folder.
+
+### Both backends
+
+| Requirement | Details                  |
+| ----------- | ------------------------ |
+| **OS**      | Windows 10/11 or Linux   |
+| **Python**  | 3.12                     |
 
 ---
 
@@ -203,12 +227,23 @@ Pin the versions to match the tested working environment:
 pip install \
     transformers==4.57.6 \
     accelerate==1.12.0 \
-    huggingface_hub>=0.26.0 \
-    Pillow>=10.0.0
+    "huggingface_hub>=0.26.0" \
+    "Pillow>=10.0.0" \
+    scipy \
+    av \
+    torchsde \
+    gguf \
+    comfy-aimdo==0.4.7 \
+    comfy-kitchen
 ```
 
-> `safetensors` is intentionally not pinned here : diffusers pulls the correct version
-> automatically as a dependency (`>=0.8.0-rc.0`).
+> **Nunchaku users**: `diffusers` was already installed in step 5 as the compatible
+> `0.37.0.dev0` wheel. Do NOT upgrade it  :  nunchaku 1.2.1 requires exactly that version.
+>
+> `safetensors` is pulled automatically by diffusers.
+>
+> `scipy`, `av`, and `torchsde` are required by the diffusers pipeline.
+> `gguf`, `comfy-aimdo`, and `comfy-kitchen` are required by the GGUF backend.
 
 ---
 
@@ -221,8 +256,7 @@ dit-colorize-rpc/
 ├── dit_client_example.py        # Example RPC client : single frame
 ├── dit_client_pair_example.py   # Example RPC client : paired inference
 ├── patch_nunchaku.py            # Compatibility patch for nunchaku 1.2.1
-├── qwen_config_fp4.json         # Config for RTX 50-Series (FP4)
-├── qwen_config_int4.json        # Config for RTX 30 / 40-Series (INT4)
+├── config/                      # Pipeline configs (nunchaku FP4/INT4 + gguf Q3–Q8)
 ├── install.cmd                  # Windows automated installer
 ├── start_server.cmd             # Windows launcher : server
 ├── run_client_example.cmd       # Windows launcher : single frame example
@@ -241,9 +275,12 @@ dit-colorize-rpc/
 
 ## 🔧 Pipeline Configuration
 
-Two ready-to-use config files are provided. Pick the one that matches your GPU and pass it to `--pipeline-config`.
+Ready-to-use config files for both backends are in the `config/` folder.
+Pick the one that matches your hardware and pass it to `--pipeline-config`.
 
-### `qwen_config_fp4.json` : RTX 50-Series (Blackwell)
+### Nunchaku Backend : `config/qwen_nunchaku_fp4.json` & `qwen_nunchaku_int4.json`
+
+#### `config/qwen_nunchaku_fp4.json` : RTX 50-Series (Blackwell)
 
 ```json
 {
@@ -256,7 +293,7 @@ Two ready-to-use config files are provided. Pick the one that matches your GPU a
 }
 ```
 
-### `qwen_config_int4.json` : RTX 30 / 40-Series (Ampere / Ada Lovelace)
+#### `config/qwen_nunchaku_int4.json` : RTX 30 / 40-Series (Ampere / Ada Lovelace)
 
 ```json
 {
@@ -272,16 +309,70 @@ Two ready-to-use config files are provided. Pick the one that matches your GPU a
 > ⚠️ **`model_precision`**: use `"fp4"` only on RTX 50-Series (Blackwell). On RTX 30 / 40-Series
 > use `"int4"` : FP4 kernels require sm_120 and will fail on older architectures.
 
-### Key reference
+### GGUF Backend : `config/qwen_gguf_q3.json` … `qwen_gguf_q8.json`
 
+Five quantization levels are available. All share the same structure with
+`model_name: "gguf-qwen"` and a `quant` field that selects the quantization:
+
+| Config file               | `quant` | UNet                                | CLIP                                |
+| ------------------------- | ------- | ----------------------------------- | ----------------------------------- |
+| `qwen_gguf_q3.json`       | `"q3"`  | `…Q3_K_S.gguf`                      | `…Q3_K_S.gguf`                      |
+| `qwen_gguf_q4.json`       | `"q4"`  | `…Q4_K_M.gguf`                      | `…Q4_K_M.gguf`                      |
+| `qwen_gguf_q5.json`       | `"q5"`  | `…Q5_K_M.gguf`                      | `…Q5_K_M.gguf`                      |
+| `qwen_gguf_q6.json`       | `"q6"`  | `…Q6_K.gguf`                        | `…Q6_K.gguf`                        |
+| `qwen_gguf_q8.json`       | `"q8"`  | `…Q8_0.gguf`                        | `…Q8_0.gguf`                        |
+
+> **Q4 is the recommended default** : good quality/VRAM balance.
+> All quants share the same VAE, mmproj, and LoRA files (auto-downloaded from HuggingFace).
+
+> **⚠️ The GGUF backend is experimental.** In some cases spurious artifacts may
+> appear in the colorized output that are not present in the source image or in the
+> `nunchaku-qwen` result. For production use, prefer `nunchaku-qwen` (FP4/INT4)
+> which is not affected by such problems.
+
+Config example (`config/qwen_gguf_q4.json`):
+
+```json
+{
+    "model_name":       "gguf-qwen",
+    "quant":            "q4",
+    "unet_gguf":        "models/unet/qwen-image-edit-2511-Q4_K_M.gguf",
+    "clip_gguf":        "models/clip/Qwen2.5-VL-7B-Instruct-Q4_K_M.gguf",
+    "mmproj_gguf":      "models/clip/Qwen2.5-VL-7B-Instruct-mmproj-BF16.gguf",
+    "vae_name":         "qwen_image_vae.safetensors",
+    "lora_path":        "models/loras/Qwen-Image-Edit-2511-Lightning-4steps-V1.0-bf16.safetensors",
+    "steps":            4,
+    "hf_unet":          "unsloth/Qwen-Image-Edit-2511-GGUF",
+    "hf_clip":          "unsloth/Qwen2.5-VL-7B-Instruct-GGUF",
+    "hf_vae":           "Comfy-Org/Qwen-Image_ComfyUI",
+    "hf_lora":          "lightx2v/Qwen-Image-Edit-2511-Lightning"
+}
+```
+
+#### LoRA (Lightning 4-step)
+
+The LoRA file `Qwen-Image-Edit-2511-Lightning-4steps-V1.0-bf16.safetensors` enables **4-step inference** (down from 20-50 steps without LoRA). It is a ComfyUI-format LoRA that gets merged directly into the transformer at load time.
+
+- **With LoRA**: call `colorize_image(..., steps=4)`  :  fast, same quality
+- **Without LoRA**: set `full_model_path` to `""` and use `steps=20` or higher
+
+The LoRA is merged statically (not applied as an adapter), so there is no runtime overhead.
+
+### Key reference
 | Key                     | Required | Description                                                                                                                                                                                                                                    |
 | ----------------------- | -------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `model_name`            | ✅        | Must be `"nunchaku-qwen"`                                                                                                                                                                                                                      |
-| `model_precision`       | ✅        | `"fp4"` (RTX 50) or `"int4"` (RTX 30/40)                                                                                                                                                                                                       |
-| `model_rank`            | ✅        | SVD rank : `"32"` is a good default                                                                                                                                                                                                            |
-| `model_inference_steps` | ✅        | Diffusion steps used to **select the model file** to download : must be `"4"` (no 2-step model file exists). To run inference faster, pass `steps=2` in the RPC call : this is independent of the downloaded model and reduces latency by ~40% |
-| `cache_dir`             | ➖        | HuggingFace cache directory. Omit or set to `""` to use the default (`~/.cache/huggingface`)                                                                                                                                                   |
-| `full_model_path`       | ➖        | Absolute path to a local `.safetensors` file. Omit or set to `""` to download from HuggingFace                                                                                                                                                 |
+| `model_name`            | ✅        | `"nunchaku-qwen"` or `"gguf-qwen"`                                                                                                                                                                                                             |
+| `quant`                 |          | **GGUF only**: quantization level (`"q3"`, `"q4"`, `"q5"`, `"q6"`, `"q8"`). Default: `"q4"` |
+| `model_precision`       | ✅        | **Nunchaku**: `"fp4"` (RTX 50) or `"int4"` (RTX 30/40). **GGUF**: not used |
+| `unet_gguf` / `clip_gguf` / `mmproj_gguf` | ✅ | **GGUF only**: local paths to the GGUF model files |
+| `model_rank`            |          | **Nunchaku**: SVD rank (`"32"`). **GGUF**: not used |
+| `model_inference_steps` |          | **Nunchaku**: diffusion steps (`"4"`). **GGUF**: not used |
+| `cache_dir`             |           | HuggingFace cache directory. Leave empty to use the default `~/.cache/huggingface` |
+| `full_model_path`       |           | **Nunchaku**: local path to the transformer checkpoint. **GGUF**: not used |
+| `lora_path`             |           | **GGUF only**: path to the Lightning 4-step LoRA (`.safetensors`). Omit to skip LoRA merging |
+| `steps`                 |           | **GGUF only**: inference steps (`4` with LoRA, `20` without) |
+| `vae_name`              |           | **GGUF only**: VAE filename |
+| `hf_*`                  |           | **GGUF only**: HuggingFace repo names for auto-download |
 
 ---
 
@@ -297,10 +388,13 @@ python dit_rpc_server.py
 
 ```bash
 # RTX 50-Series
-python dit_rpc_server.py --load-pipeline --pipeline-config qwen_config_fp4.json
+python dit_rpc_server.py --load-pipeline --pipeline-config config/qwen_nunchaku_fp4.json
 
 # RTX 30 / 40-Series
-python dit_rpc_server.py --load-pipeline --pipeline-config qwen_config_int4.json
+python dit_rpc_server.py --load-pipeline --pipeline-config config/qwen_nunchaku_int4.json
+
+# GGUF (any quantization)
+python dit_rpc_server.py --load-pipeline --pipeline-config config/qwen_gguf_q3.json
 ```
 
 On Windows you can also use the provided `start_server.cmd` (see [Windows launch script](#-windows-launch-script)).
@@ -364,15 +458,15 @@ All methods return a `dict` with at least `{"ok": bool, "msg": str}`.
 | Method                                                                 | Returns                               | Description                                  |
 | ---------------------------------------------------------------------- | ------------------------------------- | -------------------------------------------- |
 | `colorize_image(in_path, out_path, prompt, img_size=0, steps=2)`       | `{"ok", "elapsed", "skipped", "msg"}` | Single image, paths on the server filesystem |
-| `colorize_image_pair(img1_path, img2_path, out_dir, prompt, gap_px=8)` | `{"ok", "elapsed", "msg"}`            | Two images, single inference pass            |
-| `colorize_single_image(img_path, out_dir, prompt)`                     | `{"ok", "elapsed", "msg"}`            | Single image fallback (odd batch end)        |
+| `colorize_image_pair(img1_path, img2_path, out_dir, prompt, gap_px=8, steps=4)` | `{"ok", "elapsed", "msg"}`            | Two images, single inference pass            |
+| `colorize_single_image(img_path, out_dir, prompt, steps=4)`            | `{"ok", "elapsed", "msg"}`            | Single image fallback (odd batch end)        |
 
 ### Colorization : in-memory (PNG bytes over RPC)
 
 | Method                                                        | Returns                                                              | Description                       |
 | ------------------------------------------------------------- | -------------------------------------------------------------------- | --------------------------------- |
 | `colorize_frame(img_data, prompt, img_size=0, steps=2)`       | `{"ok", "data", "elapsed", "skipped", "msg"}`                        | Single frame as raw PNG bytes     |
-| `colorize_frame_pair(img1_data, img2_data, prompt, gap_px=8)` | `{"ok", "data1", "data2", "elapsed", "skipped1", "skipped2", "msg"}` | Two frames, single inference pass |
+| `colorize_frame_pair(img1_data, img2_data, prompt, gap_px=8, steps=4)` | `{"ok", "data1", "data2", "elapsed", "skipped1", "skipped2", "msg"}` | Two frames, single inference pass |
 
 > `skipped=True` means the frame was too dark to colorize (average brightness < 9/255).
 > The returned `data` field contains the unchanged input in that case.
@@ -382,7 +476,7 @@ All methods return a `dict` with at least `{"ok": bool, "msg": str}`.
 | Method                                                                                            | Returns                                            | Description                                         |
 | ------------------------------------------------------------------------------------------------- | -------------------------------------------------- | --------------------------------------------------- |
 | `colorize_frame_shm(shm_in, shm_out, h, w, prompt, img_size=0, steps=2)`                          | `{"ok", "elapsed", "skipped", "msg"}`              | Single frame via shared memory                      |
-| `colorize_frame_pair_shm(shm_in1, shm_out1, h1, w1, shm_in2, shm_out2, h2, w2, prompt, gap_px=8)` | `{"ok", "elapsed", "skipped1", "skipped2", "msg"}` | Two frames via shared memory, single inference pass |
+| `colorize_frame_pair_shm(shm_in1, shm_out1, h1, w1, shm_in2, shm_out2, h2, w2, prompt, gap_px=8, steps=4)` | `{"ok", "elapsed", "skipped1", "skipped2", "msg"}` | Two frames via shared memory, single inference pass |
 
 > See [Shared Memory Transport](#-shared-memory-transport-same-host-only) for usage details.
 
@@ -592,16 +686,37 @@ def colorize_pair_shm(proxy, img1: Image.Image, img2: Image.Image, prompt: str):
 Edit the variables at the top of the file to match your setup, then double-click it or run it from a terminal.
 
 ```
-start_server.cmd [fp4|int4]
+start_server.cmd [q3|q4|q5|q6|q8|fp4|int4]
 ```
 
-If no argument is passed it defaults to `fp4`. Pass `int4` for RTX 30 / 40-Series:
+| Argument | Backend        | Quantization   | VRAM   |
+| -------- | -------------- | -------------- | ------ |
+| _(none)_ | GGUF           | Q4_K_M         | 14 GB  |
+| `q3`     | GGUF           | Q3_K_S         | 12 GB  |
+| `q4`     | GGUF           | Q4_K_M         | 14 GB  |
+| `q5`     | GGUF           | Q5_K_M         | 16 GB  |
+| `q6`     | GGUF           | Q6_K           | 18 GB  |
+| `q8`     | GGUF           | Q8_0           | 22 GB  |
+| `fp4`    | Nunchaku       | FP4            | 16 GB  |
+| `int4`   | Nunchaku       | INT4           | 16 GB  |
+
+If no argument is passed it defaults to `q4` (Q4_K_M). Use `int4` for RTX 30 / 40-Series Nunchaku:
 
 ```
 start_server.cmd int4
 ```
 
+**Convenience wrappers** — double-click or run from terminal without arguments:
+
+| File                    | Equivalent command                | Backend               |
+| ----------------------- | --------------------------------  | --------------------- |
+| `run_server_q3.cmd`     | `start_server.cmd q3`             | GGUF Q3_K_S           |
+| `run_server_fp4.cmd`    | `start_server.cmd fp4`            | Nunchaku FP4          |
+| `run_server_int4.cmd`   | `start_server.cmd int4`           | Nunchaku INT4         |
+
 ---
+
+
 
 ## 🔧 Troubleshooting
 
@@ -616,16 +731,18 @@ python dit_rpc_server.py --module-dir /path/to/dit_colorize_main
 ```
 
 **`Model 'xxx' is not supported`**
-The only supported value for `model_name` is `"nunchaku-qwen"`.
+Supported values for `model_name` are `"nunchaku-qwen"` (FP4/INT4) and `"gguf-qwen"` (Q3_K_S, Q4_K_M, Q5_K_M, Q6_K, Q8_0). For `"gguf-qwen"`, the quantization is selected via the `quant` field in the config (e.g. `"q4"`).
 
 **Pipeline takes a long time to load**
-On the first run the model weights (~15–30 GB) are downloaded from HuggingFace.
-Subsequent runs load from the local cache. Set `cache_dir` in the config to control where the cache is stored.
+**Nunchaku**: on the first run the model weights (~15–30 GB) are downloaded from HuggingFace.
+Subsequent runs load from the local cache.
+**GGUF**: only the VAE and tokenizer (~320 MB) are downloaded from HuggingFace; the UNet and CLIP are loaded directly from the local `.gguf` files. Set `cache_dir` in the config to control where the cache is stored.
 
 ---
 
 ## 🔗 Credits
 
-- **Model**: [Qwen/Qwen-Image-Edit-2509](https://huggingface.co/Qwen/Qwen-Image-Edit-2509)
-- **Quantization**: [Nunchaku / SVDQuant](https://github.com/mit-han-lab/nunchaku)
+- **Model**: [Qwen/Qwen-Image-Edit-2511](https://huggingface.co/Qwen/Qwen-Image-Edit-2511)
+- **Nunchaku quantization**: [Nunchaku / SVDQuant](https://github.com/mit-han-lab/nunchaku)
+- **GGUF dequantization kernels**: adapted from [ComfyUI-GGUF](https://github.com/city96/ComfyUI-GGUF) (Apache 2.0)
 - **Pipeline**: [Hugging Face Diffusers](https://github.com/huggingface/diffusers)

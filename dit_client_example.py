@@ -3,7 +3,7 @@
 Author: Dan64
 Date: 2026-01-14
 -------------------------------------------------------------------------------
-DiT Colorize RPC Client — example
+DiT Colorize RPC Client  :  example
 Connects to a running dit_rpc_server instance and colorizes the sample image
 assets/santa_bw.png, saving the result as assets/santa_colorized.png.
 
@@ -30,7 +30,7 @@ from PIL import Image
 
 
 # ---------------------------------------------------------------------------
-# Helpers — standard RPC (PNG bytes over XML-RPC)
+# Helpers  :  standard RPC (PNG bytes over XML-RPC)
 # ---------------------------------------------------------------------------
 
 def _pil_to_bytes(img: Image.Image) -> bytes:
@@ -45,7 +45,7 @@ def _bytes_to_pil(data) -> Image.Image:
 
 
 # ---------------------------------------------------------------------------
-# Helpers — shared memory transport (same-host only)
+# Helpers  :  shared memory transport (same-host only)
 # ---------------------------------------------------------------------------
 
 def _colorize_shm(proxy, img: Image.Image, prompt: str,
@@ -86,7 +86,7 @@ def _colorize_shm(proxy, img: Image.Image, prompt: str,
 
 def main():
     parser = argparse.ArgumentParser(
-        description="DiT Colorize RPC Client — example",
+        description="DiT Colorize RPC Client  :  example",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
     parser.add_argument("--host", default="127.0.0.1")
@@ -151,7 +151,7 @@ def main():
         sys.exit(1)
 
     if result["skipped"]:
-        print("[WARN] Image was too dark — output is unchanged.")
+        print("[WARN] Image was too dark  :  output is unchanged.")
     else:
         print(f"[INFO] Inference time : {result['elapsed']:.2f}s")
         print(f"[INFO] Round-trip time: {wall_time:.2f}s")

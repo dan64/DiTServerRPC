@@ -4,18 +4,26 @@ Author: Dan64
 Date: 2024-12-26
 version:
 LastEditors: Dan64
-LastEditTime: 2026-01-14
+LastEditTime: 2026-05-31
 -------------------------------------------------------------------------------
-Batch colorization using the SVDQuant FP4 model:
-  svdq-fp4_r128-qwen-image-edit-2509-lightning-4steps-251115.safetensors
+Batch colorization supporting two model backends:
 
-- Optimized for RTX 50 (Blackwell)
-- Uses Nunchaku SVDQuant (4-bit) for the transformer
-- Maintains FP16/BF16 for peripheral layers
+1. nunchaku-qwen  :  SVDQuant FP4 model (Nunchaku):
+     svdq-fp4_r128-qwen-image-edit-2509-lightning-4steps-251115.safetensors
+     - Optimized for RTX 50 (Blackwell)
+     - Uses Nunchaku SVDQuant (4-bit) for the transformer
+     - Maintains FP16/BF16 for peripheral layers
+
+2. gguf-q3-qwen / gguf-q4-qwen  :  GGUF quantized models (CPU + GPU):
+     UNet:  qwen-image-edit-2511-Q3_K_S.gguf
+     CLIP:  Qwen2.5-VL-7B-Instruct-Q3_K_S.gguf  (q3) or Q4_K_S.gguf (q4)
+     - Uses standalone GGUF loader (no ComfyUI dependency)
+     - Dequantizes at load time, feeds into standard diffusers pipeline
 -------------------------------------------------------------------------------
 """
 
 import os
+import sys
 import time
 import math
 from pathlib import Path
@@ -31,11 +39,113 @@ def set_hf_cache_dir(hf_cache_dir: str):
         print(f"HF_HOME: {constants.HF_HOME}")
         print(f"HF_HUB_CACHE: {constants.HF_HUB_CACHE}")
 
+
+# ----------------------------
+# HuggingFace auto-download helper
+# ----------------------------
+def _ensure_models(files: dict):
+    """Download missing model files from HuggingFace."""
+    import logging
+    from huggingface_hub import hf_hub_download
+    _log = logging.getLogger(__name__)
+    for name, (local_path, repo_id, hf_filename) in files.items():
+        if local_path is None:
+            continue
+        if os.path.exists(local_path):
+            continue
+        _log.info(f"Downloading {name} from {repo_id}/{hf_filename} ...")
+        try:
+            downloaded = hf_hub_download(
+                repo_id=repo_id,
+                filename=hf_filename,
+                local_dir=os.path.dirname(local_path),
+                local_dir_use_symlinks=False,
+            )
+            # mmproj needs renaming
+            if hf_filename != os.path.basename(local_path):
+                os.rename(downloaded, local_path)
+            _log.info(f"  -> {local_path}")
+        except Exception as e:
+            _log.warning(f"Failed to download {name}: {e}")
+
+
+# ----------------------------
+# Load GGUF Q3 pipeline
+# ----------------------------
+def load_gguf_pipeline(model_name: str, unet_gguf_path: str, clip_gguf_path: str,
+                       cache_dir: str = "", lora_path: str = "",
+                       torch_compile=False, device="cuda", vae_name="qwen_image_vae.safetensors",
+                       hf_unet="unsloth/Qwen-Image-Edit-2511-GGUF",
+                       hf_clip="unsloth/Qwen2.5-VL-7B-Instruct-GGUF",
+                       hf_vae="Comfy-Org/Qwen-Image_ComfyUI",
+                       hf_lora="lightx2v/Qwen-Image-Edit-2511-Lightning"):
+    """
+    Load a GGUF-quantized Qwen Image Edit pipeline.
+
+    The HuggingFace pipeline provides VAE, scheduler, tokenizer, and
+    feature extractor (downloaded once, then cached).
+    The GGUF files provide the quantized UNet (transformer) and CLIP
+    (text_encoder) weights, dequantized at load time via gguf_loader.
+
+    Optionally, a ComfyUI-format LoRA (Lightning 4-step) can be merged
+    into the transformer to enable fast inference.
+
+    Parameters
+    ----------
+    model_name      : "gguf-q3-qwen" or "gguf-q4-qwen"
+    unet_gguf_path  : path to the UNet GGUF file
+    clip_gguf_path  : path to the CLIP GGUF file
+    cache_dir       : HuggingFace cache directory (optional)
+    lora_path       : path to the LoRA safetensors file (optional)
+    torch_compile   : enable torch.compile on the transformer
+    device          : target device ("cuda" or "cpu")
+    """
+    if model_name not in ("gguf-qwen", "nunchaku-qwen"):
+        return None
+
+    import torch
+    torch.backends.cuda.matmul.allow_tf32 = True
+    torch.backends.cudnn.allow_tf32 = True
+
+    # Resolve relative paths against comfy_bridge directory
+    import os as _os
+    _bridge_dir = _os.path.join(_os.path.dirname(__file__), "comfy_bridge")
+    unet_gguf_path = _os.path.join(_bridge_dir, unet_gguf_path) if not _os.path.isabs(unet_gguf_path) else unet_gguf_path
+    clip_gguf_path = _os.path.join(_bridge_dir, clip_gguf_path) if not _os.path.isabs(clip_gguf_path) else clip_gguf_path
+    if lora_path and not _os.path.isabs(lora_path):
+        lora_path = _os.path.join(_bridge_dir, lora_path)
+
+    from comfy_bridge import load_gguf_pipeline as comfy_load_gguf
+
+    # Auto-download missing files from HuggingFace
+    _auto = _os.environ.get("COMFY_AUTO_DOWNLOAD", "1") == "1"
+    _bridge = _bridge_dir
+    _vae_local = _os.path.join(_bridge, "models", "vae", vae_name)
+    _files = {
+        "unet": (unet_gguf_path, hf_unet, _os.path.basename(unet_gguf_path)),
+        "clip": (clip_gguf_path, hf_clip, _os.path.basename(clip_gguf_path)),
+        "vae":  (_vae_local, hf_vae, "split_files/vae/" + vae_name),
+        "lora": (lora_path, hf_lora, _os.path.basename(lora_path)) if lora_path else None,
+    }
+    # mmproj  :  special handling: downloaded as mmproj-BF16.gguf, renamed locally
+    _mmproj_src = _os.path.join(_bridge, "models", "clip", "Qwen2.5-VL-7B-Instruct-mmproj-BF16.gguf")
+    if not _os.path.exists(_mmproj_src):
+        _files["mmproj"] = (_mmproj_src, hf_clip, "mmproj-BF16.gguf")
+
+    if _auto:
+        _ensure_models(_files)
+
+    pipeline = comfy_load_gguf(unet_gguf_path, clip_gguf_path, lora_path=lora_path, vae_name=vae_name)
+    return pipeline
+
+
 # ----------------------------
 # Load SVDQuant FP4 pipeline
 # ----------------------------
 def load_nunchaku_pipeline(model_name: str, model_precision: str, model_rank, model_inference_steps,
-                           cache_dir: str = "", base_model_path: str = "", full_model_path: str = "", torch_compile=False, device="cuda"):
+                           cache_dir: str = "", base_model_path: str = "", full_model_path: str = "",
+                           torch_compile=False, device="cuda", vae_name="qwen_image_vae.safetensors",
+                           hf_unet="", hf_clip="", hf_vae="", hf_lora=""):
 
     if model_name not in ('nunchaku-qwen'):
         return None
@@ -181,6 +291,9 @@ def upscale_with_lanczos(image, target_size):
     return image.resize(target_size, Image.Resampling.LANCZOS)
 
 def resize_long_side(img: Image.Image, dim: int = 1024) -> Image.Image:
+    """Resize so the longest side equals `dim`, keeping aspect ratio.
+    Dimensions are snapped to multiples of 16 (required by the Qwen VAE:
+    8× spatial compression + 2×2 patch packing = factor 16)."""
     w, h = img.size
     max_size = max(w, h)
     if max_size < dim:
@@ -188,23 +301,24 @@ def resize_long_side(img: Image.Image, dim: int = 1024) -> Image.Image:
     ratio = dim / max_size
     new_w = int(w * ratio)
     new_h = int(h * ratio)
-    new_w = new_w if new_w % 2 == 0 else new_w + 1
-    new_h = new_h if new_h % 2 == 0 else new_h + 1
+    # Snap to multiples of 16 (Qwen VAE requirement)
+    SNAP = 16
+    new_w = ((new_w + SNAP - 1) // SNAP) * SNAP
+    new_h = ((new_h + SNAP - 1) // SNAP) * SNAP
     return img.resize((new_w, new_h), Image.Resampling.LANCZOS)
 
 def colorize_image(pipe, img: Image, prompt:str, steps: int = 2, seed: int=42) -> Image:
+    # GGUF pipeline (dict)  :  comfy_bridge colorize
+    if isinstance(pipe, dict):
+        from comfy_bridge import colorize
+        return colorize(pipe, img, prompt, steps, seed)
+
+    # Nunchaku pipeline (diffusers QwenImageEditPlusPipeline)
     import torch
-    generator = torch.Generator(device="cuda").manual_seed(seed)
-    with torch.inference_mode():
-        output = pipe(
-            image=img,
-            prompt=prompt,
-            num_inference_steps=steps,  # Optimized for lightning model
-            true_cfg_scale=1.0,
-            generator=generator,
-        )
-    img_out = output.images[0]
-    return img_out
+    device = "cuda" if torch.cuda.is_available() else "cpu"
+    generator = torch.Generator(device=device).manual_seed(seed)
+    result = pipe(image=img, prompt=prompt, num_inference_steps=steps, generator=generator, true_cfg_scale=1.0)
+    return result.images[0]
 
 def is_image_dark(img: Image, threshold: int = 20):
     """
@@ -260,7 +374,7 @@ def process_image(input_path, output_path, pipe, prompt: str = None, img_size:in
 
     return t_elapsed
 
-def process_single_image(pipe, img_path: Path, output_dir: Path, prompt: str) -> float:
+def process_single_image(pipe, img_path: Path, output_dir: Path, prompt: str, steps: int = 2) -> float:
     """Fallback for odd-numbered batches."""
     out_path = output_dir / (img_path.stem + ".jpg")
     original = Image.open(img_path).convert("RGB")
@@ -268,7 +382,7 @@ def process_single_image(pipe, img_path: Path, output_dir: Path, prompt: str) ->
     if is_image_dark(original, threshold=9):
         return 0
 
-    return process_image_standard(pipe, original, out_path, prompt)
+    return process_image_standard(pipe, original, out_path, prompt, steps=steps)
 
 def process_image_standard(pipe, original, output_path, prompt, img_size: int = 1024, steps: int = 2) -> float:
 
@@ -292,7 +406,7 @@ def process_image_standard(pipe, original, output_path, prompt, img_size: int = 
 # ----------------------------
 # Pair Processing
 # ----------------------------
-def process_image_pair(pipe, img1_path: Path, img2_path: Path, output_dir: Path, prompt: str, gap_px=16) -> float:
+def process_image_pair(pipe, img1_path: Path, img2_path: Path, output_dir: Path, prompt: str, gap_px=16, steps: int = 2) -> float:
     # Load originals
     orig1 = Image.open(img1_path).convert("RGB")
     orig2 = Image.open(img2_path).convert("RGB")
@@ -311,10 +425,10 @@ def process_image_pair(pipe, img1_path: Path, img2_path: Path, output_dir: Path,
         return 0
 
     if orig1_dark:
-        return process_image_standard(pipe, orig2, out2, prompt)
+        return process_image_standard(pipe, orig2, out2, prompt, steps=steps)
 
     if orig2_dark:
-        return process_image_standard(pipe, orig1, out1, prompt)
+        return process_image_standard(pipe, orig1, out1, prompt, steps=steps)
 
     # Convert to B&W
     bw1 = ImageEnhance.Color(orig1).enhance(0.0)
@@ -337,7 +451,7 @@ def process_image_pair(pipe, img1_path: Path, img2_path: Path, output_dir: Path,
 
     # Single inference
     t_start = time.perf_counter()
-    colorized_merged = colorize_image(pipe, merged_input, prompt)
+    colorized_merged = colorize_image(pipe, merged_input, prompt, steps=steps)
     t_end = time.perf_counter()
 
     resized_colorized_merged = upscale_with_lanczos(colorized_merged, merged_input.size)
@@ -354,4 +468,3 @@ def process_image_pair(pipe, img1_path: Path, img2_path: Path, output_dir: Path,
     right_final.save(out2)
 
     return t_end - t_start
-

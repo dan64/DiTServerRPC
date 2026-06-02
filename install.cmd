@@ -1,6 +1,6 @@
 @echo off
 :: =============================================================================
-:: install.cmd  —  DiT Colorize RPC Server — environment installer (Windows)
+:: install.cmd : DiT Colorize RPC Server : environment installer (Windows)
 ::
 :: Installs all required Python packages into the currently active virtual
 :: environment (or the conda environment specified below).
@@ -17,14 +17,14 @@
 :: =============================================================================
 
 :: ---------------------------------------------------------------------------
-:: USER CONFIGURATION — leave CONDA_ENV empty if you are using a plain venv
+:: USER CONFIGURATION : leave CONDA_ENV empty if you are using a plain venv
 :: ---------------------------------------------------------------------------
 
-:: Conda environment name — used only when PYTHON_EXE is not set and no venv
+:: Conda environment name : used only when PYTHON_EXE is not set and no venv
 :: is active. Leave empty to rely on the currently active environment.
 set CONDA_ENV=
 
-:: Explicit path to python.exe — leave empty for auto-detection
+:: Explicit path to python.exe : leave empty for auto-detection
 :: Example: set PYTHON_EXE=C:\Users\YourName\.venv\Scripts\python.exe
 set PYTHON_EXE=
 
@@ -71,7 +71,7 @@ if not "%CONDA_ENV%"=="" (
             set PYTHON_EXE=python
             goto :run
         )
-        echo [WARN] conda activate failed — falling back to base python
+        echo [WARN] conda activate failed : falling back to base python
     )
 )
 
@@ -82,7 +82,7 @@ set PYTHON_EXE=python
 :: BANNER
 :: ---------------------------------------------------------------------------
 echo ============================================================
-echo  DiT Colorize RPC Server — Environment Installer
+echo  DiT Colorize RPC Server : Environment Installer
 echo  Python : %PYTHON_EXE%
 echo  Dir    : %INSTALL_DIR%
 echo ============================================================
@@ -133,7 +133,13 @@ echo [5/5] Installing remaining dependencies ...
     transformers==4.57.6 ^
     accelerate==1.12.0 ^
     "huggingface_hub>=0.26.0" ^
-    "Pillow>=10.0.0"
+    "Pillow>=10.0.0" ^
+    scipy ^
+    av ^
+    torchsde ^
+    gguf ^
+    comfy-aimdo==0.4.7 ^
+    comfy-kitchen
 if %errorlevel% neq 0 ( echo [ERROR] Dependency install failed. & pause & exit /b 1 )
 echo.
 

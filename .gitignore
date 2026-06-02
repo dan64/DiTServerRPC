@@ -164,3 +164,7 @@ cython_debug/
 # Project Folders 
 dist
 temp/
+
+# models extensions
+*.gguf
+*.safetensors

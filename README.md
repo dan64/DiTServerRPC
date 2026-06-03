@@ -3,7 +3,7 @@
 An XML-RPC server that exposes a GPU-accelerated colorization pipeline for black-and-white images and video frames.
 Two backends, one API : pick the one that fits your hardware:
 
-- **nunchaku-qwen**: SVDQuant FP4/INT4 transformer via [Nunchaku](https://github.com/nunchaku-ai/nunchaku) : **4 sec/frame**, requires RTX 30/40/50 (16 GB VRAM) & CUDA 12.8
+- **nunchaku-qwen**: SVDQuant FP4/INT4 transformer via [Nunchaku](https://github.com/nunchaku-ai/nunchaku) : **4 sec/frame**, requires RTX 30/40/50 (16 GB VRAM) & CUDA 13.0
 - **gguf-qwen**: ComfyUI-native GGUF pipeline (Q3_K_S, Q4_K_S, Q5_K_M, Q6_K, Q8_0) : **12 sec/frame**, runs on RTX 30/40/50 (12 GB VRAM), zero ComfyUI GUI dependency
 
 ---
@@ -13,11 +13,11 @@ Two backends, one API : pick the one that fits your hardware:
 > If you already created the `.venv` with a previous version (CUDA 12.8,
 > PyTorch 2.9.1, Nunchaku cu12.8torch2.9), upgrade to get these benefits:
 
-| Improvement | Before (12.8) | After (13.0) |
-|---|---|---|
-| **CUDA allocator** | `native` (slower reallocation) | `cudaMallocAsync` (async, ~10 % faster memory ops) |
-| **comfy-kitchen CUDA** | `disabled: True` (fallback to eager) | `disabled: False` (native dequantization kernels) |
-| **Warning** | `You need pytorch with cu130 or higher` | gone (build matches Nunchaku) |
+| Improvement            | Before (12.8)                           | After (13.0)                                       |
+| ---------------------- | --------------------------------------- | -------------------------------------------------- |
+| **CUDA allocator**     | `native` (slower reallocation)          | `cudaMallocAsync` (async, ~10 % faster memory ops) |
+| **comfy-kitchen CUDA** | `disabled: True` (fallback to eager)    | `disabled: False` (native dequantization kernels)  |
+| **Warning**            | `You need pytorch with cu130 or higher` | gone (build matches Nunchaku)                      |
 
 **Upgrade steps:**
 

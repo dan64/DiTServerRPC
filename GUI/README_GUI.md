@@ -137,7 +137,22 @@ The GUI relies on three command-line tools that must be present on disk
 | **NVEncC** | NVIDIA GPU encoder | `GUI/tools/NVEncC/NVEncC64.exe` | [rigaya/NVEnc](https://github.com/rigaya/NVEnc/releases) |
 | **MKVToolNix** | `.h265` → `.mkv` muxing | `GUI/tools/MKVToolNix/mkvmerge.exe` | [MKVToolNix](https://mkvtoolnix.download/) |
 
-> You can place these tools anywhere — just point the GUI to their paths
+> **Quick setup with Release 1.0.0**: the project's [Release 1.0.0](https://github.com/dan64/DiTServerRPC/releases/tag/v1.0.0)
+> includes a `tools.zip` archive containing `x265.exe` and `mkvmerge.exe`.
+> Download it and extract its contents directly into `GUI/tools/` so that the
+> default paths match without any additional configuration:
+>
+> ```
+> GUI/tools/
+> ├── x265/
+> │   └── x265.exe
+> ├── MKVToolNix/
+> │   └── mkvmerge.exe
+> ├── NVEncC/        (download separately)
+> └── ...
+> ```
+>
+> You can also place these tools anywhere — just point the GUI to their paths
 > in the **Encode/Merge** tab.
 
 ---

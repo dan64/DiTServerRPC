@@ -808,7 +808,7 @@ def orchestrator(init_values, window):
         )
         state["current_process"] = proc
         start_time = time.time()
-        frame_re   = re.compile(r"(\d+)/\d+\s+Frames", re.IGNORECASE)
+        frame_re   = re.compile(r"(\d+)(?:/\d+)?\s+frames?\b", re.IGNORECASE)
         curr = 0
         for line in proc.stderr:
             if state["stop_requested"]:

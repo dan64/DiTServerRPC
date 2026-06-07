@@ -2,17 +2,17 @@
 -------------------------------------------------------------------------------
 Author: Dan64
 Date: 2024-12-26
-LastEditTime: 2026-01-14
+LastEditTime: 2026-06-07
 -------------------------------------------------------------------------------
-GUI Client per la colorizzazione batch via RPC.
-
-La pipeline AI gira sul server (CMNET2_colorize_server.py).
-Questo client si connette via XML-RPC e invia le richieste di colorizzazione.
-
-Avvio:
-    python CMNET2_colorize_client_GUI.py
-
-Il server deve essere già avviato sulla macchina GPU prima di cliccare Connect.
+ GUI Client for batch colorization via RPC.
+ 
+ The AI pipeline runs on the server (CMNET2_colorize_server.py).
+ This client connects via XML-RPC and sends colorization requests.
+ 
+ Usage:
+     python CMNET2_colorize_client_GUI.py
+ 
+ The server must already be running on the GPU machine before clicking Connect.
 -------------------------------------------------------------------------------
 """
 
@@ -41,14 +41,14 @@ if str(script_dir) not in sys.path:
 
 # ---------------------------------------------------------------------------
 # RPC Client wrapper
-# Centralizza tutta la comunicazione con il server in un unico oggetto.
+# Centralizes all communication with the server in a single object.
 # ---------------------------------------------------------------------------
 
 class _TimeoutTransport(xmlrpc.client.Transport):
     """
-    Transport xmlrpc con timeout configurabile.
-    Il Transport standard non espone il timeout: bisogna sottoclassarlo
-    e impostarlo direttamente su HTTPConnection dentro make_connection().
+    XML-RPC transport with configurable timeout.
+    The standard Transport does not expose a timeout: we must subclass it
+    and set it directly on HTTPConnection inside make_connection().
     """
     def __init__(self, timeout: float):
         super().__init__()
@@ -62,17 +62,17 @@ class _TimeoutTransport(xmlrpc.client.Transport):
 
 class CMNET2RpcClient:
     """
-    Wrapper attorno a xmlrpc.client.ServerProxy.
+    Wrapper around xmlrpc.client.ServerProxy.
 
-    Due timeout distinti:
-    - CONNECT_TIMEOUT (5s): usato da ping(), fallisce subito se il server
-      non è raggiungibile invece di bloccare la GUI.
-    - CALL_TIMEOUT (600s): usato per le chiamate di colorizzazione che
-      possono impiegare molti secondi per immagine.
+    Two distinct timeouts:
+    - CONNECT_TIMEOUT (5s): used by ping(), fails immediately if the server
+      is unreachable instead of blocking the GUI.
+    - CALL_TIMEOUT (600s): used for colorization calls that can take many
+      seconds per image.
     """
 
-    _CONNECT_TIMEOUT = 5    # secondi — per ping() / is_pipeline_loaded()
-    _CALL_TIMEOUT    = 600  # secondi — per colorize_*() / load_pipeline()
+    _CONNECT_TIMEOUT = 5    # seconds — for ping() / is_pipeline_loaded()
+    _CALL_TIMEOUT    = 600  # seconds — for colorize_*() / load_pipeline()
 
     def __init__(self, host: str, port: int):
         uri = f"http://{host}:{port}"
@@ -89,18 +89,18 @@ class CMNET2RpcClient:
 
     def ping(self) -> tuple[bool, str]:
         """
-        Ritorna (True, "") se il server risponde entro 5 secondi.
-        Ritorna (False, messaggio_errore) altrimenti.
+        Returns (True, "") if the server responds within 5 seconds.
+        Returns (False, error_message) otherwise.
         """
         try:
             ok = self._proxy_fast.ping() == "pong"
-            return (ok, "" if ok else "Risposta inattesa dal server")
+            return (ok, "" if ok else "Unexpected response from server")
         except ConnectionRefusedError:
-            return (False, "Connection refused — il server non è in ascolto")
+            return (False, "Connection refused — server is not listening")
         except TimeoutError:
-            return (False, "Timeout — server non raggiungibile")
+            return (False, "Timeout — server unreachable")
         except OSError as e:
-            return (False, f"Errore di rete: {e}")
+            return (False, f"Network error: {e}")
         except Exception as e:
             return (False, str(e))
 
@@ -348,19 +348,19 @@ def update_status(window, message, type="info"):
 # ---------------------------------------------------------------------------
 # RPC CONNECTION HELPER
 # ---------------------------------------------------------------------------
-_RPC_MAX_RETRIES = 5   # tentativi prima di arrendersi
-_RPC_RETRY_DELAY = 2   # secondi tra un tentativo e il successivo
+_RPC_MAX_RETRIES = 5   # attempts before giving up
+_RPC_RETRY_DELAY = 2   # seconds between attempts
 
 
 def _connect_thread(host: str, port: int, window):
     """
-    Gira in un thread daemon: non blocca la GUI durante i retry.
-    Comunica con il main thread solo via write_event_value.
+    Runs in a daemon thread: does not block the GUI during retries.
+    Communicates with the main thread only via write_event_value.
     """
     def log(msg):
         window.write_event_value("-LOG-", msg)
 
-    log(f"[RPC] Connessione a {host}:{port} (max {_RPC_MAX_RETRIES} tentativi)...")
+    log(f"[RPC] Connecting to {host}:{port} (max {_RPC_MAX_RETRIES} attempts)...")
 
     try:
         client = CMNET2RpcClient(host, int(port))
@@ -370,33 +370,33 @@ def _connect_thread(host: str, port: int, window):
             if ok:
                 state["rpc_client"] = client
                 state["rpc_connected"] = True
-                log(f"[RPC] ✅ Connesso a {host}:{port}")
+                log(f"[RPC] ✅ Connected to {host}:{port}")
                 window.write_event_value("-RPC_CONNECT_DONE-", (True, ""))
                 return
-            log(f"[RPC] Tentativo {attempt}/{_RPC_MAX_RETRIES} fallito: {err_msg}")
+            log(f"[RPC] Attempt {attempt}/{_RPC_MAX_RETRIES} failed: {err_msg}")
             if attempt < _RPC_MAX_RETRIES:
                 time.sleep(_RPC_RETRY_DELAY)
 
-        # Tutti i tentativi esauriti
+        # All attempts exhausted
         state["rpc_client"] = None
         state["rpc_connected"] = False
-        log(f"[RPC] ❌ Connessione fallita dopo {_RPC_MAX_RETRIES} tentativi.")
+        log(f"[RPC] ❌ Connection failed after {_RPC_MAX_RETRIES} attempts.")
         window.write_event_value("-RPC_CONNECT_DONE-", (False, err_msg))
 
     except Exception as e:
         state["rpc_client"] = None
         state["rpc_connected"] = False
-        log(f"[RPC] ❌ Errore imprevisto: {e}")
+        log(f"[RPC] ❌ Unexpected error: {e}")
         window.write_event_value("-RPC_CONNECT_DONE-", (False, str(e)))
 
 
 # ---------------------------------------------------------------------------
-# TASK LOGIC — subprocess (EXTRACT, ENCODE, MERGE) — invariati rispetto
-# alla versione originale, girano localmente nel client.
+# TASK LOGIC — subprocess (EXTRACT, ENCODE, MERGE) — unchanged from
+# the original version, run locally on the client.
 # ---------------------------------------------------------------------------
 
 def run_vspipe_task(cmd, window, task_name, log_fn):
-    """Gestisce subprocess per lo Step 1 (EXTRACT)."""
+    """Handles subprocess for Step 1 (EXTRACT)."""
     proc = subprocess.Popen(
         cmd,
         stderr=subprocess.PIPE,
@@ -517,7 +517,7 @@ def orchestrator(init_values, window):
         cmd = (f'"{values["-VSPIPE-"]}" "{extract_vpy}" . --progress '
                f'-a "VideoPath={orig_video_path}" '
                f'-a "RefDir={ref_dir}" {vpy_args}')
-        log_message(f'ℹ️ Avvio estrazione con script: "{extract_vpy}"')
+        log_message(f'ℹ️ Starting extraction with script: "{extract_vpy}"')
         ret = run_vspipe_task(cmd, window, "EXTRACT", log_message)
 
         info = get_video_info(
@@ -528,8 +528,8 @@ def orchestrator(init_values, window):
             num_extract = len(list(out_dir.glob("*.jpg")))
             if num_extract > 0:
                 log_message(
-                    f"[EXTRACT] Esportate {num_extract} immagini di riferimento, "
-                    f"circa 1 ogni {round(total_frames / num_extract)} frame")
+                    f"[EXTRACT] Exported {num_extract} reference images, "
+                    f"approx. 1 every {round(total_frames / num_extract)} frames")
 
         if ret == 0 and window["-DUPE_FIRST_FRAME-"].get():
             ref_dir_path = Path(ref_dir)
@@ -541,22 +541,22 @@ def orchestrator(init_values, window):
                 target_file = ref_dir_path / "ref_000000.jpg"
                 if target_file.exists():
                     send2trash(str(target_file))
-                    log_message(f"ℹ️ {target_file.name} sovrascritto.")
+                    log_message(f"ℹ️ {target_file.name} overwritten.")
                 shutil.copy2(second_file, target_file)
-                log_message(f"✅ Creato {target_file.name} da {second_file.name}")
+                log_message(f"✅ Created {target_file.name} from {second_file.name}")
             else:
-                log_message("⚠️ Meno di 2 frame trovati — skip duplicazione.")
+                log_message("⚠️ Fewer than 2 frames found — skipping duplication.")
 
-    # ---- STEP 2a: COLORIZE (standard, una immagine per volta) ----
+    # ---- STEP 2a: COLORIZE (standard, one image at a time) ----
     def do_colorize(values, window):
         rpc = state.get("rpc_client")
         if rpc is None:
-            log_message("⚠️ Nessuna connessione al server RPC.")
+            log_message("⚠️ No connection to RPC server.")
             return
 
-        # Carica pipeline se non già caricata
+        # Load pipeline if not already loaded
         if not rpc.is_pipeline_loaded():
-            log_message(f'Caricamento pipeline AI sul server...')
+            log_message('Loading AI pipeline on server...')
             result = rpc.load_pipeline(
                 values["-MODEL_NAME-"],
                 values["-MODEL_PRECISION-"],
@@ -565,9 +565,9 @@ def orchestrator(init_values, window):
                 values["-CACHE_DIR-"],
             )
             if not result.get("ok"):
-                log_message(f"⚠️ Impossibile caricare pipeline: {result.get('msg')}")
+                log_message(f"⚠️ Unable to load pipeline: {result.get('msg')}")
                 return
-            log_message(f"✅ Pipeline caricata: {result.get('msg')}")
+            log_message(f"✅ Pipeline loaded: {result.get('msg')}")
 
         rpc.clear_stop()
 
@@ -589,7 +589,7 @@ def orchestrator(init_values, window):
                 rpc.request_stop()
                 break
             if not window["-DO_STEP2-"].get():
-                log_message("[COLORIZE] Task saltato dall'utente.")
+                log_message("[COLORIZE] Task skipped by user.")
                 break
 
             curr_i = i + 1
@@ -623,31 +623,31 @@ def orchestrator(init_values, window):
                     color_img = Image.open(out_img_path).convert("RGB")
                     window.write_event_value("-PREVIEW_CLR-", color_img)
                 else:
-                    log_message(f"⚠️ {img_path.name}: saltata (troppo scura o già colorizzata)")
+                    log_message(f"⚠️ {img_path.name}: skipped (too dark or already colorized)")
 
             except xmlrpc.client.Fault as e:
-                log_message(f"RPC Fault su {img_path.name}: {e.faultString}")
+                log_message(f"RPC Fault on {img_path.name}: {e.faultString}")
             except Exception as e:
-                log_message(f"Errore su {img_path.name}: {e}")
+                log_message(f"Error on {img_path.name}: {e}")
 
         window.write_event_value("-PROGRESS-",
                                  (100, f"100% {total_images}/{total_images}"))
         update_status(window, "Status: OK", "info")
         if count > 0:
             log_message(
-                f"🎉 Done! {count} immagini in {tot_time:.2f}s "
-                f"({tot_time / count:.2f}s/immagine)")
+                f"🎉 Done! {count} images in {tot_time:.2f}s "
+                f"({tot_time / count:.2f}s/image)")
 
-    # ---- STEP 2b: COLORIZE FAST (a coppie) ----
+    # ---- STEP 2b: COLORIZE FAST (paired) ----
     def do_colorize_fast(values, window):
         rpc = state.get("rpc_client")
         if rpc is None:
-            log_message("⚠️ Nessuna connessione al server RPC.")
+            log_message("⚠️ No connection to RPC server.")
             return
 
-        # Carica pipeline se non già caricata
+        # Load pipeline if not already loaded
         if not rpc.is_pipeline_loaded():
-            log_message("Caricamento pipeline AI sul server...")
+            log_message("Loading AI pipeline on server...")
             result = rpc.load_pipeline(
                 values["-MODEL_NAME-"],
                 values["-MODEL_PRECISION-"],
@@ -656,9 +656,9 @@ def orchestrator(init_values, window):
                 values["-CACHE_DIR-"],
             )
             if not result.get("ok"):
-                log_message(f"⚠️ Impossibile caricare pipeline: {result.get('msg')}")
+                log_message(f"⚠️ Unable to load pipeline: {result.get('msg')}")
                 return
-            log_message(f"✅ Pipeline caricata: {result.get('msg')}")
+            log_message(f"✅ Pipeline loaded: {result.get('msg')}")
 
         rpc.clear_stop()
 
@@ -670,7 +670,7 @@ def orchestrator(init_values, window):
         out_stems  = {f.stem.lower() for f in out_dir.glob("*.jpg")}
 
         if out_stems:
-            log_message(f"⚠️ {len(out_stems)} immagini già colorizzate — saranno saltate.")
+            log_message(f"⚠️ {len(out_stems)} images already colorized — will be skipped.")
 
         image_files = sorted([
             f for f in in_dir.iterdir()
@@ -680,12 +680,12 @@ def orchestrator(init_values, window):
         tot_num_images = len(image_files)
 
         if tot_num_images == 0:
-            log_message("ℹ️ Nessuna immagine da colorizzare.")
+            log_message("ℹ️ No images to colorize.")
             return
 
-        log_message(f"ℹ️ {tot_num_images} immagini da colorizzare.")
+        log_message(f"ℹ️ {tot_num_images} images to colorize.")
 
-        # Raggruppa in coppie
+        # Group into pairs
         pairs = [image_files[i:i + 2] for i in range(0, tot_num_images, 2)]
         prompt     = values["-PROMPT-"]
         tot_time   = 0.0
@@ -698,7 +698,7 @@ def orchestrator(init_values, window):
                 rpc.request_stop()
                 break
             if not window["-DO_STEP2-"].get():
-                log_message("[COLORIZE] Task saltato dall'utente.")
+                log_message("[COLORIZE] Task skipped by user.")
                 break
 
             n_images += len(pair)
@@ -715,13 +715,13 @@ def orchestrator(init_values, window):
                         str(out_dir), prompt, gap_px=8, steps=steps
                     )
                     if not result.get("ok"):
-                        log_message(f"⚠️ Coppia {pair[0].name}+{pair[1].name}: {result.get('msg')}")
+                        log_message(f"⚠️ Pair {pair[0].name}+{pair[1].name}: {result.get('msg')}")
                         continue
                     t = result.get("elapsed", 0.0)
                     if t > 0:
                         log_gui_only(
-                            f"✅ Coppia: {pair[0].name}, {pair[1].name} "
-                            f"[{t / 2:.2f}s/immagine]")
+                            f"✅ Pair: {pair[0].name}, {pair[1].name} "
+                            f"[{t / 2:.2f}s/image]")
                     tot_time += t
                     count    += 2
                 else:
@@ -734,7 +734,7 @@ def orchestrator(init_values, window):
                     t = result.get("elapsed", 0.0)
                     if t > 0:
                         log_message(
-                            f"✅ Singola: {pair[0].name} [{t:.2f}s/immagine]")
+                            f"✅ Single: {pair[0].name} [{t:.2f}s/image]")
                     tot_time += t
                     count    += 1
 
@@ -748,20 +748,20 @@ def orchestrator(init_values, window):
                         color_img = Image.open(out_img_path).convert("RGB")
                         window.write_event_value("-PREVIEW_CLR-", color_img)
                 else:
-                    log_message(f'⚠️ "{pair[0].name}": troppo scura, saltata')
+                    log_message(f'⚠️ "{pair[0].name}": too dark, skipped')
 
             except xmlrpc.client.Fault as e:
                 log_message(f"RPC Fault: {e.faultString}")
             except Exception as e:
-                log_message(f"Errore su coppia {pair[0].name}: {e}")
+                log_message(f"Error on pair {pair[0].name}: {e}")
 
         window.write_event_value("-PROGRESS-",
                                  (100, f"100% {n_images}/{tot_num_images}"))
         update_status(window, "Status: OK", "info")
         if count > 0:
             log_message(
-                f"🎉 Done! {count} immagini in {tot_time:.2f}s "
-                f"({tot_time / count:.2f}s/immagine)")
+                f"🎉 Done! {count} images in {tot_time:.2f}s "
+                f"({tot_time / count:.2f}s/image)")
 
     # ---- STEP 3a: ENCODE x265 ----
     def do_encode_x265(values, window, orig_video_path):
@@ -794,7 +794,7 @@ def orchestrator(init_values, window):
                 window.write_event_value("-FPS-", info["fps"])
 
         full_cmd = f"{vsp_cmd} | {x265_cmd}"
-        log_message(f'ℹ️ Avvio encoding con script: "{values["-ENCODE_VPY-"]}"')
+        log_message(f'ℹ️ Starting encoding with script: "{values["-ENCODE_VPY-"]}"')
         log_message("----------------------------------------------------------------")
         log_message(f"[ENCODE] {full_cmd.strip()}")
         log_message("----------------------------------------------------------------")
@@ -832,7 +832,7 @@ def orchestrator(init_values, window):
         window.write_event_value("-PROGRESS-", (p, f"{p}% {curr}/{total_frames}"))
         if p < 90:
             update_status(window, "Status: Failed", "error")
-            log_message(f"[FAILED] Codificati solo {curr}/{total_frames}")
+            log_message(f"[FAILED] Encoded only {curr}/{total_frames}")
         else:
             update_status(window, "Status: OK", "success")
             log_message(f"[COMPLETED] Encoding: {orig_video_path} @ {fps_val} fps")
@@ -888,7 +888,7 @@ def orchestrator(init_values, window):
         window.write_event_value("-PROGRESS-", (p, f"{p}% {curr}/{total_frames}"))
         if p < 90:
             update_status(window, "Status: Failed", "error")
-            log_message(f"[FAILED] Codificati solo {curr}/{total_frames}")
+            log_message(f"[FAILED] Encoded only {curr}/{total_frames}")
         else:
             update_status(window, "Status: OK", "success")
             log_message(f"[COMPLETED] Encoding: {orig_video_path} @ {fps_val} fps")
@@ -914,7 +914,7 @@ def orchestrator(init_values, window):
         )
 
         if not os.path.exists(last_encoded_file):
-            log_message(f"⚠️ File non trovato per il merge: {last_encoded_file}")
+            log_message(f"⚠️ File not found for merge: {last_encoded_file}")
             return
 
         info = get_video_info(
@@ -963,20 +963,20 @@ def orchestrator(init_values, window):
 
         for task in tasks:
             if state["stop_requested"]:
-                log_message("⚠️ STOP richiesto")
+                log_message("⚠️ STOP requested")
                 break
-            log_message(f">>> AVVIO TASK: {task}")
+            log_message(f">>> STARTING TASK: {task}")
 
             if task == "EXTRACT":
                 if not window["-DO_STEP1-"].get():
-                    log_message("⚠️ Task Extraction cancellato")
+                    log_message("⚠️ Extraction task cancelled")
                 else:
                     do_extraction(init_values, window, orig_video_path)
 
             elif task == "COLORIZE":
                 fast_pipeline = bool(window["-FAST_PIPE-"].get())
                 if not window["-DO_STEP2-"].get():
-                    log_message("⚠️ Task Colorization cancellato")
+                    log_message("⚠️ Colorization task cancelled")
                 else:
                     if fast_pipeline:
                         do_colorize_fast(init_values, window)
@@ -985,7 +985,7 @@ def orchestrator(init_values, window):
 
             elif task == "ENCODE":
                 if not window["-DO_STEP3-"].get():
-                    log_message("⚠️ Task Encoding cancellato")
+                    log_message("⚠️ Encoding task cancelled")
                 else:
                     if window["-ENCODER-"].get() == "x265":
                         last_encoded_file = do_encode_x265(
@@ -996,12 +996,12 @@ def orchestrator(init_values, window):
 
             elif task == "MERGE":
                 if not window["-DO_STEP4-"].get():
-                    log_message("⚠️ Task Merge cancellato")
+                    log_message("⚠️ Merge task cancelled")
                 else:
                     do_video_merge(
                         init_values, window, orig_video_path, last_encoded_file)
 
-        log_message("[COMPLETED] Tutti i task completati con successo.")
+        log_message("[COMPLETED] All tasks completed successfully.")
         window.write_event_value("-FINISHED-", True)
 
     except Exception as e:
@@ -1108,7 +1108,7 @@ tab2_layout = [
 ]
 
 # ---------------------------------------------------------------------------
-# TAB 3 — Colorization  (novità: frame connessione RPC in cima)
+# TAB 3 — Colorization  (new: RPC connection frame at top)
 # ---------------------------------------------------------------------------
 tab3_layout = [
     [sg.Text("AI Colorization Settings", font=("Any", 14, "bold"))],
@@ -1224,14 +1224,14 @@ while True:
             state["current_process"].terminate()
         break
 
-    # ---- Connessione al server RPC ----
+    # ---- RPC server connection ----
     if event == "-CONNECT-":
         host = values["-RPC_HOST-"].strip()
         port = values["-RPC_PORT-"].strip()
         window["-CONNECT-"].update(disabled=True)
         window["-RPC_LED-"].update("●", text_color="yellow")
         window["-RPC_STATUS_TEXT-"].update("⏳ ...", text_color="yellow")
-        window["-LOG_BOX-"].print(f"[RPC] Connessione a {host}:{port}...")
+        window["-LOG_BOX-"].print(f"[RPC] Connecting to {host}:{port}...")
         threading.Thread(
             target=_connect_thread, args=(host, port, window), daemon=True
         ).start()
@@ -1242,13 +1242,13 @@ while True:
         if ok:
             window["-RPC_LED-"].update("●", text_color="lime")
             window["-RPC_STATUS_TEXT-"].update("✅ OK", text_color="lime")
-            update_status(window, "Status: Server RPC connesso", "info")
+            update_status(window, "Status: RPC Server connected", "info")
         else:
             window["-RPC_LED-"].update("●", text_color="red")
-            window["-RPC_STATUS_TEXT-"].update("❌ Errore", text_color="red")
-            update_status(window, "Status: Connessione RPC fallita", "error")
+            window["-RPC_STATUS_TEXT-"].update("❌ Error", text_color="red")
+            update_status(window, "Status: RPC connection failed", "error")
 
-    # ---- Aggiorna combo script quando cambia la dir ----
+    # ---- Update script combos when dir changes ----
     if event == "-SCRIPT_DIR-":
         ev = scan_files(values["-SCRIPT_DIR-"], "cmnet2_extract_*.vpy")
         if ev: window["-EXTRACT_VPY-"].update(values=ev)
@@ -1278,7 +1278,7 @@ while True:
             state["total_frames"] = info["frames"]
             update_video_info(window, info)
 
-    # ---- Salva configurazione ----
+    # ---- Save configuration ----
     if event == "Save Global Settings":
         curr_w, curr_h = window.size
         cfg.update({
@@ -1325,16 +1325,16 @@ while True:
         save_all_configs(cfg)
         sg.popup("Settings saved to JSON.")
 
-    # ---- Avvio pipeline ----
+    # ---- Pipeline start ----
     if event == "-RUN-":
         if not values["-VIDEO_DROPDOWN-"]:
-            sg.popup_error("Seleziona prima un file video!")
+            sg.popup_error("Select a video file first!")
             continue
         if (values["-DO_STEP2-"] and not state["rpc_connected"]):
             sg.popup_error(
-                "Il task Colorization è selezionato ma il client\n"
-                "non è connesso al server RPC.\n\n"
-                "Vai alla tab '2. Colorization' e clicca Connect.")
+                "The Colorization task is selected but the client\n"
+                "is not connected to the RPC server.\n\n"
+                "Go to the '2. Colorization' tab and click Connect.")
             continue
         window["-RUN-"].update(disabled=True)
         window["-STOP-"].update(disabled=False)
@@ -1347,9 +1347,9 @@ while True:
 
     # ---- Stop ----
     if event == "-STOP-":
-        if sg.popup_yes_no("Fermare il task corrente?") == "Yes":
+        if sg.popup_yes_no("Stop the current task?") == "Yes":
             state["stop_requested"] = True
-            # Notifica anche il server se connesso
+            # Also notify the server if connected
             rpc = state.get("rpc_client")
             if rpc:
                 try:
@@ -1379,13 +1379,13 @@ while True:
         window["-STOP-"].update(disabled=True)
         if values["-FINISHED-"]:
             window["-LOG_BOX-"].print(
-                "\n[COMPLETED] Tutti i task completati.", text_color="green")
+                "\n[COMPLETED] All tasks completed.", text_color="green")
             if window["-SHUTDOWN-"].get():
                 window["-LOG_BOX-"].print(
-                    "Shutdown avviato (60s)...", text_color="red")
+                    "Shutdown initiated (60s)...", text_color="red")
                 os.system("shutdown /s /t 60")
         else:
             window["-LOG_BOX-"].print(
-                "\n[STOPPED] Processo fermato o fallito.", text_color="orange")
+                "\n[STOPPED] Process stopped or failed.", text_color="orange")
 
 window.close()

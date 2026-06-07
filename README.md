@@ -47,6 +47,24 @@ pip show nunchaku    # Expected: 1.2.1+cu13.0torch2.10
 
 ---
 
+## 📢 What's New
+
+### 2026-06-07 — Desktop GUI for Batch Video Processing
+
+A **FreeSimpleGUI desktop client** (`GUI/CMNET2_colorize_client_GUI.py`) has been added to the project.
+It orchestrates the full video colorization pipeline from a single graphical interface:
+
+1. **Extract** reference frames via VapourSynth + scene-change detection
+2. **Colorize** frames via the DiT RPC Server (standard or paired inference)
+3. **Encode** the result as H.265 (x265 or NVEnc)
+4. **Merge** the AI output with an existing color clip (optional, luminance-guided chroma blend)
+
+See [GUI/README_GUI.md](GUI/README_GUI.md) for installation, setup, and usage instructions.
+
+> **Prerequisite**: the DiT RPC Server must be running before the GUI can colorize frames.
+
+---
+
 ## ✨ Features
 
 - 📦 **Two backends, one API** : nunchaku-qwen (FP4/INT4, 4 sec/frame) for speed, gguf-qwen (Q3_K_S … Q8_0, 12 sec/frame) for lower VRAM

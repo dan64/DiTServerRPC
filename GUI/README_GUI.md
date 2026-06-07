@@ -1,0 +1,381 @@
+# CMNET2 Colorize Client — GUI
+
+A FreeSimpleGUI-based desktop client that connects to the [DiT Colorize RPC Server](../README.md)
+and orchestrates a full video colorization pipeline: extraction → AI colorization → encoding → merge.
+
+---
+
+## Table of Contents
+
+- [Pipeline Overview](#pipeline-overview)
+- [System Requirements](#system-requirements)
+- [Installation](#installation)
+  - [1. Activate the shared virtual environment](#1-activate-the-shared-virtual-environment)
+  - [2. Install GUI Python dependencies](#2-install-gui-python-dependencies)
+  - [3. Install `vscmnet2`](#3-install-vscmnet2)
+  - [4. Install `spatial_correlation_sampler`](#4-install-spatial_correlation_sampler)
+  - [5. Install external tools](#5-install-external-tools)
+- [Launching the GUI](#launching-the-gui)
+- [Interface Guide](#interface-guide)
+  - [Dashboard](#dashboard)
+  - [Tab 1 — Extraction](#tab-1--extraction)
+  - [Tab 2 — Colorization](#tab-2--colorization)
+  - [Tab 3 — Encode / Merge](#tab-3--encode--merge)
+- [Workflow: Step by Step](#workflow-step-by-step)
+  - [Step 1: Extract Reference Frames](#step-1-extract-reference-frames)
+  - [Step 2: Colorize Frames (AI)](#step-2-colorize-frames-ai)
+  - [Step 3: Encode Video](#step-3-encode-video)
+  - [Step 4: Merge (optional)](#step-4-merge-optional)
+- [Understanding the Merge Step](#understanding-the-merge-step)
+- [Settings Persistence](#settings-persistence)
+- [Credits](#credits)
+
+---
+
+## Pipeline Overview
+
+```
+Original Video
+      │
+      ▼
+ Step 1: EXTRACT
+ (VapourSynth → vscmnet2 → reference frames in ref_tht10/)
+      │
+      ▼
+ Step 2: COLORIZE
+ (RPC → DiT RPC Server → colorized frames in ref_qwen/)
+      │
+      ▼
+ Step 3: ENCODE
+ (VapourSynth → vscmnet2 → x265 or NVEnc → .h265 video)
+      │
+      ▼
+ Step 4: MERGE (optional)
+ (VapourSynth → vscmnet2 → blended .h265 → .mkv)
+```
+
+Each step can be toggled on/off independently from the Dashboard. For example,
+if reference frames are already extracted you can skip Step 1 and run only
+Steps 2–4.
+
+---
+
+## System Requirements
+
+| Requirement | Details |
+|-------------|---------|
+| **OS** | Windows 10 / 11 (64-bit) |
+| **Python** | 3.12 |
+| **GPU** | RTX 30 / 40 / 50 (same as the DiT server) |
+| **Tools** | VapourSynth R74, x265, NVEncC, MKVToolNix |
+| **Server** | `dit_rpc_server.py` must be running (see [main README](../README.md)) |
+
+The GUI and the server can run on the **same machine** (localhost) or on
+**different machines** — just point the RPC host field to the server's IP.
+
+---
+
+## Installation
+
+All packages must be installed in the **same `.venv`** already created for the
+DiT RPC server. If you haven't set up the server yet, follow the
+[main README](../README.md) first.
+
+### 1. Activate the shared virtual environment
+
+```powershell
+# From the project root (DiTServerRPC)
+.venv\Scripts\activate
+```
+
+### 2. Install GUI Python dependencies
+
+```powershell
+pip install -r GUI\requirements.txt
+```
+
+This installs:
+
+- **Pillow** — image loading and preview
+- **FreeSimpleGUI** — GUI toolkit (PySimpleGUI fork)
+- **VapourSynth R74** — video frameserver bindings
+- **send2trash** — safe file deletion
+- **tkinter_embed** — tkinter integration for FreeSimpleGUI
+
+### 3. Install `vscmnet2`
+
+The `vscmnet2` package provides the VapourSynth functions used by Steps 1, 3,
+and 4 (scene-change detection, edge-aware frame extraction, color merging,
+and encoding). It is available from [github.com/dan64/vs-cmnet2](https://github.com/dan64/vs-cmnet2):
+
+```powershell
+pip install packages\vscmnet2-1.0.0-py3-none-any.whl
+```
+
+### 4. Install `spatial_correlation_sampler`
+
+This is a compiled extension (PyTorch 2.10 + CUDA 13.0) of
+[Pytorch-Correlation-extension](https://github.com/ClementPinard/Pytorch-Correlation-extension),
+required by `vscmnet2` for temporal alignment during encoding:
+
+```powershell
+pip install packages\spatial_correlation_sampler-0.5.0-cp312-cp312-win_amd64.whl
+```
+
+> The wheel is pre-built for **Python 3.12 / PyTorch 2.10+cu130 / Windows x64**.
+> It will only work with that exact combination.
+
+### 5. Install external tools
+
+The GUI relies on three command-line tools that must be present on disk
+(they are **not** Python packages):
+
+| Tool | Purpose | Default location | Download |
+|------|---------|------------------|----------|
+| **VapourSynth** | Video frameserver | Bundled in the `.venv` | `pip install VapourSynth==74` |
+| **x265** | H.265 software encoder | `GUI/tools/x265/x265.exe` | [x265 downloads](https://www.videolan.org/developers/x265.html) |
+| **NVEncC** | NVIDIA GPU encoder | `GUI/tools/NVEncC/NVEncC64.exe` | [rigaya/NVEnc](https://github.com/rigaya/NVEnc/releases) |
+| **MKVToolNix** | `.h265` → `.mkv` muxing | `GUI/tools/MKVToolNix/mkvmerge.exe` | [MKVToolNix](https://mkvtoolnix.download/) |
+
+> You can place these tools anywhere — just point the GUI to their paths
+> in the **Encode/Merge** tab.
+
+---
+
+## Launching the GUI
+
+### From the command line
+
+```powershell
+# Activate the venv first
+.venv\Scripts\activate
+python GUI\CMNET2_colorize_client_GUI.py
+```
+
+### From the launcher (silent, no console)
+
+Double-click `GUI/run_colorize_client_GUI.vbs`. This runs the `.cmd` wrapper
+in a hidden console, so no Terminal window stays open.
+
+### Desktop shortcut (optional)
+
+You can create a desktop shortcut to launch the GUI without ever seeing a
+command prompt:
+
+1. Right-click on the desktop → **New → Shortcut**
+2. For the location, enter the full path to the `.vbs` file:
+   ```
+   D:\PProjects\DiTServerRPC\GUI\run_colorize_client_GUI.vbs
+   ```
+3. Click **Next**, give the shortcut a name (e.g. *CMNET2 Colorize Client*)
+4. Click **Finish**
+
+To change the shortcut's icon:
+
+1. Right-click the new shortcut → **Properties**
+2. Click **Change Icon...**
+3. Browse to any `.ico` file on your system (or download one you like)
+4. Click **OK** twice
+
+The shortcut launches the GUI silently – the VBScript runs the `.cmd` wrapper
+in a hidden window.
+
+---
+
+### Before using .cmd / .vbs launcher
+
+The launcher auto-detects the Python interpreter in this order:
+
+1. **Explicit `PYTHON_EXE`** – set it in `GUI/run_colorize_client_GUI.cmd` if
+   you use a custom environment
+2. **`.venv` in the project root** – looks for
+   `.venv\Scripts\python.exe` one level above `GUI/`
+3. **`python` from PATH** – fallback
+
+If you use a non-standard environment location, edit `PYTHON_EXE` in the
+**USER CONFIGURATION** block at the top of `run_colorize_client_GUI.cmd`:
+
+```batch
+set PYTHON_EXE=C:\Users\YourName\.conda\envs\my-env\python.exe
+```
+
+---
+
+## Interface Guide
+
+The GUI has four tabs plus a persistent status bar at the bottom.
+
+### Dashboard
+
+- **Task checkboxes**: enable/disable each pipeline step
+- **START PIPELINE**: runs the selected steps sequentially
+- **STOP**: gracefully interrupts the current step (sends stop signal to both
+  subprocesses and the RPC server)
+- **Progress bar**: shows overall completion percentage
+- **Log window**: live output from VapourSynth, x265/NVEnc, and the RPC client
+- **Shutdown PC when finished**: triggers `shutdown /s /t 60` after completion
+
+### Tab 1 — Extraction
+
+| Setting | Description |
+|---------|-------------|
+| **VapourSynth Pipe** | Path to `vspipe.exe` (bundled in `.venv`) |
+| **Script Directory** | Folder containing the `.vpy` scripts (`GUI/scripts/`) |
+| **Extract VPY** | VapourSynth script for frame extraction |
+| **Threshold / tht_ssim / min_int / mult/freq** | Scene-change detection parameters |
+| **Ref Override** | Force re-extraction even if reference frames exist |
+| **Duplicate first frame** | Copies the second extracted frame to `ref_000000.jpg` (useful for frame 0 coverage) |
+| **Video Directory** | Folder containing the video to process |
+| **Select Video** | Dropdown populated from the video directory |
+
+After selecting a video, the **Video Technical Details** panel shows
+resolution, FPS, frame count, and pixel format.
+
+### Tab 2 — Colorization
+
+| Setting | Description |
+|---------|-------------|
+| **RPC Host / Port** | Server address (default: `127.0.0.1:8765`) |
+| **Connect button + LED** | Tests the RPC connection with a ping |
+| **Model / Precision / Rank / Steps** | Pipeline configuration sent to the server |
+| **Colorization Steps** | Diffusion steps per frame (lower = faster) |
+| **Fast Pipeline** | Enables **paired inference**: two frames colorized in one forward pass (~2× faster, temporally consistent) |
+| **Prompt** | Text prompt sent to the model |
+| **Cache Directory** | HuggingFace cache (leave empty for default) |
+
+The two image panels show a live preview of the B&W input and the AI output
+as frames are processed.
+
+### Tab 3 — Encode / Merge
+
+| Setting | Description |
+|---------|-------------|
+| **MKVmerge Path** | Path to `mkvmerge.exe` |
+| **x265 Path** | Path to `x265.exe` (also used to locate NVEncC) |
+| **Encode VPY** | VapourSynth script for encoding |
+| **CRF** | x265 quality (lower = better, typical: 18–24) |
+| **FPS** | Output frame rate |
+| **Encoder** | `x265` (software) or `Nvenc` (GPU hardware) |
+| **Memory Frames** | Max frames buffered by VapourSynth |
+| **Render Speed** | VapourSynth render preset (`auto`, `fast`, `medium`, `slow`, `slower`) |
+| **Merge Weight** | Blend ratio for Step 4 (0.30 = 30% original, 0.75 = 75% original) |
+| **VBR Quality** | NVEnc quality target (lower = better) |
+| **NVEnc Sharpness** | Enables `--vpp-unsharp --vpp-edgelevel` on NVEnc |
+
+---
+
+## Workflow: Step by Step
+
+### Step 1: Extract Reference Frames
+
+VapourSynth reads the video through `vscmnet2` and runs scene-change
+detection (`sc_algo=1`). Keyframes that differ significantly from their
+neighbors are exported as JPEG images to `ref_tht10/`.
+
+The extraction parameters control how aggressively frames are selected:
+
+- **threshold** (`sc_threshold`): sensitivity — lower = more frames
+- **tht_ssim** (`sc_tht_ssim`): SSIM threshold for scene-change
+- **min_int** (`sc_min_int`): minimum frame interval between selections
+- **mult/freq** (`sc_mult_tht`): minimum frequency multiplier
+
+### Step 2: Colorize Frames (AI)
+
+The GUI connects to the DiT RPC Server and sends each extracted frame for
+colorization. Results are saved to `ref_qwen/`.
+
+Two modes are available:
+
+- **Standard**: each frame is sent individually
+- **Fast Pipeline** (paired inference): two frames are placed side-by-side
+  and colorized in a single forward pass. This is faster and produces
+  temporally-consistent results between adjacent frames.
+
+The server's pipeline is loaded on demand (if not already loaded at boot).
+
+### Step 3: Encode Video
+
+VapourSynth reads the original video and the colorized frames from
+`ref_qwen/`, then `vscmnet2` overlays the color onto the original luminance
+channel. The result is piped to the chosen encoder.
+
+| Encoder | Pros | Cons |
+|---------|------|------|
+| **x265** | Higher quality, fine CRF control | Slower (CPU-bound) |
+| **NVEnc** | Fast (GPU), VBR quality control | Requires NVIDIA GPU |
+
+The output is a `.h265` raw video stream. If MKVToolNix is configured, a
+`.mkv` container is created automatically and the raw `.h265` is deleted.
+
+### Step 4: Merge (optional)
+
+This step **only makes sense when the original video clip is already
+colorized** (e.g., a previous colorization pass or a naturally color source).
+
+VapourSynth reads both the original color clip and the newly encoded DiT
+clip, then blends them using `vscmnet2.vs_merge`:
+
+```
+output = (DiT clip × (1 - weight)) + (original color clip × weight)
+```
+
+The **Merge Weight** slider (0.30–0.74) controls how much of the original
+color clip is kept:
+
+| Weight | Effect |
+|--------|--------|
+| 0.30 | 30% original color, 70% DiT — DiT look dominates |
+| 0.50 | 50/50 — balanced blend |
+| 0.74 | 74% original color, 26% DiT — original colors dominate |
+
+> If the original clip is black-and-white, **disable Step 4**.
+> Blending a B&W clip with a colorized one only desaturates the result.
+
+The merged output is saved as `[video]_cmnet2_dt-color_merged.mkv`.
+
+---
+
+## Understanding the Merge Step
+
+The merge is a **luminance-guided chroma blend**: the `vscmnet2.vs_merge`
+function takes the chroma from the DiT-colorized clip and the chroma from the
+original color clip, then blends them according to the weight parameter while
+keeping the original luma channel.
+
+This is useful when:
+
+- You have a **manually colorized** version of the clip and you want to see
+  which parts the AI interprets differently
+- You want to **tone down** the AI's color choices by mixing in a known-good
+  reference
+- You want to **compare** the AI output against a baseline by creating a
+  50/50 split
+
+---
+
+## Settings Persistence
+
+All GUI settings are saved to `gui_cmnet2_settings.json` in the `GUI/` folder
+when you click **Save Global Settings**. The file is loaded automatically at
+startup and includes:
+
+- Tool paths (VapourSynth, x265, MKVToolNix)
+- Script directory and script filenames
+- Model configuration (name, precision, rank, steps)
+- Extraction parameters
+- Encoding parameters (CRF, FPS, encoder choice)
+- Merge weight and VBR quality
+- RPC host and port
+- Window size
+
+---
+
+## Credits
+
+- **CMNET2 / vscmnet2**: [github.com/dan64/vs-cmnet2](https://github.com/dan64/vs-cmnet2) — VapourSynth color-matching and scene-detection functions
+- **spatial_correlation_sampler**: [Pytorch-Correlation-extension](https://github.com/ClementPinard/Pytorch-Correlation-extension) — GPU correlation layer used by vscmnet2
+- **DiT Model**: [Qwen/Qwen-Image-Edit-2511](https://huggingface.co/Qwen/Qwen-Image-Edit-2511)
+- **VapourSynth**: [vapoursynth.com](https://www.vapoursynth.com/)
+- **x265**: [videolan.org](https://www.videolan.org/developers/x265.html)
+- **NVEncC**: [rigaya/NVEnc](https://github.com/rigaya/NVEnc)
+- **MKVToolNix**: [mkvtoolnix.download](https://mkvtoolnix.download/)

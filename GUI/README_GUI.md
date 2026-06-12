@@ -299,10 +299,13 @@ Supports both SHM (same-host) and PNG-over-RPC (remote server) transport.
 | **Colorization Steps** | Inference steps (default: 2) |
 | **Convert in B&W before colorization** | Check/Unchek if you want to colorize/fix an image already colorized |
 | **Prompt** | Text prompt for the model |
+| **Max** | Max prompts history size |
 | **Load Image** | Load image from drag-and-drop or Browser button (via `load_image_DtD_GUI.py`) |
 | **Colorize** | Run colorization with fixed seed (42) |
 | **Colorize (Random)** | Run colorization with random seed for variation |
+| **Overwrite** | Overwrite the last loaded image with last colorized image | 
 | **Save As...** | Save the colorized result (PNG / JPG) |
+| **Swap Output** | Copy the output image as input image for the next colorization |
 
 The input image is previewed scaled to 370×350 pixels; the full-resolution
 output is stored in memory and saved to disk via the **Save As...** button.

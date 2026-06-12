@@ -165,6 +165,7 @@ def load_all_configs():
         # --- fix image ---
         "fix_steps":              "2",
         "fix_bw":                 True,
+        "fix_prompt_max":         "30",
         "fix_prompts":            ["Colorize this image, natural colors."],
         # --- encode ---
         "mkv_path":       r"",
@@ -1092,6 +1093,10 @@ def _fix_colorize_worker(values, window, seed):
         prompt = values["-FIX_PROMPT-"]
         # Register new prompt in the history list if not already present
         if prompt and prompt not in state["fix_prompts"]:
+            max_prompts = int(values.get("-FIX_PROMPT_MAX-", 30) or 30)
+            # Keep the default at index 0; trim oldest after it if over limit
+            while len(state["fix_prompts"]) > 1 and len(state["fix_prompts"]) >= max_prompts:
+                state["fix_prompts"].pop(1)
             state["fix_prompts"].append(prompt)
         steps  = int(values["-FIX_STEPS-"])  
         host   = values["-RPC_HOST-"].strip()
@@ -1307,7 +1312,8 @@ tab5_layout = [
     [sg.Text("Prompt:"),
      sg.Combo(state["fix_prompts"], default_value=state["fix_prompts"][0],
               key="-FIX_PROMPT-", expand_x=True, size=(40,1)),
-     sg.Button("Clear", key="-FIX_PROMPT_CLEAR-")],
+      sg.Button("Clear", key="-FIX_PROMPT_CLEAR-"),
+     sg.Text("Max:"), sg.Input(cfg.get("fix_prompt_max", "30"), key="-FIX_PROMPT_MAX-", size=(4,1))],
 
     [sg.Text("Drag & Drop a File into the TextBox below, or Browse:")],
     [sg.Button("Load Image", key="-FIX_LOAD-"),
@@ -1325,6 +1331,7 @@ tab5_layout = [
 
     [sg.Button("Colorize", key="-FIX_COLORIZE-"),
      sg.Button("Colorize (Random)", key="-FIX_COLORIZE_RND-"),
+     sg.Button("Overwrite", key="-FIX_OVERWRITE-"),
      sg.Button("Save As...", key="-FIX_SAVE-"),
      sg.Button("Swap Output → Input", key="-FIX_SWAP-")],
     [sg.Text("", key="-FIX_STATUS-", size=(40,1))],
@@ -1398,6 +1405,7 @@ while True:
             try:
                 img = Image.open(path).convert("RGB")
                 state["fix_input"] = img
+                state["fix_original_path"] = path
                 # Scale for preview (fit within 370x350 maintaining aspect)
                 img.thumbnail((370, 350), Image.Resampling.LANCZOS)
                 buf = io.BytesIO()
@@ -1445,6 +1453,17 @@ while True:
     if event == "-FIX_COLORIZE_RND-":
         do_fix_colorize(values, window, seed=random.randint(0, 2**31))
 
+    if event == "-FIX_OVERWRITE-":
+        out = state.get("fix_output")
+        orig = state.get("fix_original_path", "")
+        if out is None:
+            sg.popup_error("No output image to save.")
+        elif not orig or not os.path.isfile(orig):
+            sg.popup_error("Original file no longer available.")
+        else:
+            out.save(orig)
+            window["-FIX_STATUS-"].update(f"Overwritten: {os.path.basename(orig)}")
+
     if event == "-FIX_SAVE-":
         out = state.get("fix_output")
         if out is None:
@@ -1471,6 +1490,7 @@ while True:
         _preview.save(buf, format="PNG")
         window["-FIX_IMG_CLR-"].update(data=buf.getvalue())
         window["-FIX_STATUS-"].update(f"✅ Done ({elapsed:.1f}s, seed={seed})")
+        window["-FIX_PROMPT-"].update(values=state["fix_prompts"], value=state["fix_prompts"][-1])
         window["-FIX_COLORIZE-"].update(disabled=False)
         window["-FIX_COLORIZE_RND-"].update(disabled=False)
 
@@ -1551,6 +1571,7 @@ while True:
             "fast_pipe":             values["-FAST_PIPE-"],
             "fix_steps":              values["-FIX_STEPS-"],
             "fix_bw":                 values["-FIX_BW-"],
+            "fix_prompt_max":         values["-FIX_PROMPT_MAX-"],
             "fix_prompts":            state["fix_prompts"],
             "mkv_path":              values["-MKV_PATH-"],
             "hf_cache":              values["-CACHE_DIR-"],

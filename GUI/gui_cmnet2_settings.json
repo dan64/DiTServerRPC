@@ -4,7 +4,7 @@
     "script_dir": "D:/PProjects/DiTServerRPC/GUI/scripts",
     "extract_script": "extract_refs_edge.vpy",
     "encode_script": "encode_cmnet2.vpy",
-    "base_dir": "E:/COLOR/TO_COLORIZE/Quarto Potere (1941)",
+    "base_dir": "D:/PProjects/DiTServerRPC/GUI/samples",
     "model_name": "nunchaku-qwen",
     "model_precision": "fp4",
     "model_rank": "32",
@@ -13,9 +13,9 @@
     "fast_pipe": true,
     "fix_steps": "2",
     "fix_bw": false,
+    "fix_prompt_max": "30",
     "fix_prompts": [
-        "Colorize this image, natural colors.",
-        "Colorize the woman's dress in red"
+        "Colorize this image, natural colors."
     ],
     "mkv_path": "D:/PProjects/DiTServerRPC/GUI/tools/MKVToolNix/mkvmerge.exe",
     "hf_cache": "",
@@ -42,8 +42,6 @@
     "rpc_port": 8765,
     "window_w": 820,
     "window_h": 705,
-    "use_CMNET2": false,
-    "use_havc": false,
     "model_dir": "",
     "model_path": "svdq-fp4_r32-qwen-image-edit-2509-lightning-4steps-251115.safetensors"
 }

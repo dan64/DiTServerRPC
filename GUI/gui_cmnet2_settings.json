@@ -1,5 +1,5 @@
 {
-    "vspipe_path": "D:/PProjects/DiTServerRPC/.venv/Lib/site-packages/vapoursynth/vspipe.exe",
+    "vspipe_path": "D:/PProjects/DiTServerRPC/.venv/Scripts/vspipe.exe",
     "x265_path": "D:/PProjects/DiTServerRPC/GUI/tools/x265/x265.exe",
     "script_dir": "D:/PProjects/DiTServerRPC/GUI/scripts",
     "extract_script": "extract_refs_edge.vpy",
@@ -11,7 +11,7 @@
     "model_inference_steps": "4",
     "steps": "2",
     "fast_pipe": true,
-    "fix_steps": "2",
+    "fix_steps": "4",
     "fix_bw": false,
     "fix_prompt_max": "30",
     "fix_prompts": [

@@ -1313,6 +1313,7 @@ tab5_layout = [
      sg.Combo(state["fix_prompts"], default_value=state["fix_prompts"][0],
               key="-FIX_PROMPT-", expand_x=True, size=(40,1)),
       sg.Button("Clear", key="-FIX_PROMPT_CLEAR-"),
+     sg.Button("Delete", key="-FIX_PROMPT_DEL-"),
      sg.Text("Max:"), sg.Input(cfg.get("fix_prompt_max", "30"), key="-FIX_PROMPT_MAX-", size=(4,1))],
 
     [sg.Text("Drag & Drop a File into the TextBox below, or Browse:")],
@@ -1404,7 +1405,7 @@ while True:
         if path and os.path.isfile(path):
             try:
                 img = Image.open(path).convert("RGB")
-                state["fix_input"] = img
+                state["fix_input"] = img.copy()
                 state["fix_original_path"] = path
                 # Scale for preview (fit within 370x350 maintaining aspect)
                 img.thumbnail((370, 350), Image.Resampling.LANCZOS)
@@ -1447,6 +1448,14 @@ while True:
         window["-FIX_PROMPT-"].update(values=state["fix_prompts"],
                                      value=state["fix_prompts"][0])
 
+    if event == "-FIX_PROMPT_DEL-":
+        cur = values["-FIX_PROMPT-"]
+        # keep the default prompt at index 0
+        if cur in state["fix_prompts"] and state["fix_prompts"].index(cur) != 0:
+            state["fix_prompts"].remove(cur)
+            window["-FIX_PROMPT-"].update(values=state["fix_prompts"],
+                                         value=state["fix_prompts"][0])
+
     if event == "-FIX_COLORIZE-":
         do_fix_colorize(values, window, seed=42)
 
@@ -1469,7 +1478,7 @@ while True:
         if out is None:
             sg.popup_error("No output image to save.")
         else:
-            src_path = values["-FIX_PATH-"]
+            src_path = state.get("fix_original_path", "") or values["-FIX_PATH-"]
             default_dir  = os.path.dirname(src_path) if src_path else ""
             _src_ext = os.path.splitext(src_path)[1] if src_path else ".png"
             default_name = os.path.splitext(os.path.basename(src_path))[0] + "_colorized" + _src_ext if src_path else "colorized.png"
@@ -1493,6 +1502,9 @@ while True:
         window["-FIX_PROMPT-"].update(values=state["fix_prompts"], value=state["fix_prompts"][-1])
         window["-FIX_COLORIZE-"].update(disabled=False)
         window["-FIX_COLORIZE_RND-"].update(disabled=False)
+        # Auto-save prompts to config
+        cfg["fix_prompts"] = state["fix_prompts"]
+        save_all_configs(cfg)
 
     if event == "-FIX_LOG-":
         window["-FIX_STATUS-"].update(values[event])

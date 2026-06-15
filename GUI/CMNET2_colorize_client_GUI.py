@@ -1098,6 +1098,9 @@ def _fix_colorize_worker(values, window, seed):
             while len(state["fix_prompts"]) > 1 and len(state["fix_prompts"]) >= max_prompts:
                 state["fix_prompts"].pop(1)
             state["fix_prompts"].append(prompt)
+            # Sort alphabetically (default at index 0 stays)
+            if len(state["fix_prompts"]) > 2:
+                state["fix_prompts"][1:] = sorted(state["fix_prompts"][1:], key=str.lower)
         steps  = int(values["-FIX_STEPS-"])  
         host   = values["-RPC_HOST-"].strip()
         # Honor the "Convert in B&W" checkbox
@@ -1123,7 +1126,7 @@ def _fix_colorize_worker(values, window, seed):
             out = _bytes_to_pil(res.get("data", data)) if res.get("ok") else pil_in  
 
         elapsed = time.time() - t0  
-        window.write_event_value("-FIX_DONE-", (out, elapsed, seed))  
+        window.write_event_value("-FIX_DONE-", (out, elapsed, seed, prompt))  
     except Exception as e:  
         window.write_event_value("-FIX_LOG-", f"⚠️ {e}")  
 
@@ -1491,7 +1494,7 @@ while True:
                 window["-FIX_STATUS-"].update(f"Saved: {os.path.basename(dest)}")
 
     if event == "-FIX_DONE-":
-        out, elapsed, seed = values[event]
+        out, elapsed, seed, prompt = values[event]
         state["fix_output"] = out
         _preview = out.copy()
         _preview.thumbnail((370, 350), Image.Resampling.LANCZOS)
@@ -1499,7 +1502,7 @@ while True:
         _preview.save(buf, format="PNG")
         window["-FIX_IMG_CLR-"].update(data=buf.getvalue())
         window["-FIX_STATUS-"].update(f"✅ Done ({elapsed:.1f}s, seed={seed})")
-        window["-FIX_PROMPT-"].update(values=state["fix_prompts"], value=state["fix_prompts"][-1])
+        window["-FIX_PROMPT-"].update(values=state["fix_prompts"], value=prompt)
         window["-FIX_COLORIZE-"].update(disabled=False)
         window["-FIX_COLORIZE_RND-"].update(disabled=False)
         # Auto-save prompts to config

@@ -300,6 +300,8 @@ Supports both SHM (same-host) and PNG-over-RPC (remote server) transport.
 | **Convert in B&W before colorization** | Check/Unchek if you want to colorize/fix an image already colorized |
 | **Prompt** | Text prompt for the model |
 | **Max** | Max prompts history size |
+| **Delete** | Delete current prompt from history list |
+| **Clear** | Clear the prompt's history list |
 | **Load Image** | Load image from drag-and-drop or Browser button (via `load_image_DtD_GUI.py`) |
 | **Colorize** | Run colorization with fixed seed (42) |
 | **Colorize (Random)** | Run colorization with random seed for variation |

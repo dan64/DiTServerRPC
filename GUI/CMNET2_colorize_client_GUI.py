@@ -1419,7 +1419,8 @@ tab6_layout = [
     [sg.HorizontalSeparator()],
 
     [sg.Button("Recolor", key="-FIXV_RECOLOR-", size=(16, 2), button_color=("white", "#1a6b1a")),
-     sg.Text("", key="-FIXV_STATUS-", size=(50, 1))],
+     sg.Button("Stop", key="-FIXV_STOP-", size=(8, 2), button_color="SaddleBrown", disabled=True),
+     sg.Text("", key="-FIXV_STATUS-", size=(40, 1))],
 ]
 
 # ---------------------------------------------------------------------------
@@ -1855,6 +1856,7 @@ while True:
                     title="Error")
             else:
                 window["-FIXV_RECOLOR-"].update(disabled=True)
+                window["-FIXV_STOP-"].update(disabled=False)
                 window["-FIXV_STATUS-"].update("Recoloring...")
                 window["-LOG_BOX-"].print("--- RECOLOR STARTED ---\n")
                 threading.Thread(
@@ -1866,12 +1868,22 @@ while True:
     if event == "-FIXV_DONE-":
         ok = values["-FIXV_DONE-"]
         window["-FIXV_RECOLOR-"].update(disabled=False)
+        window["-FIXV_STOP-"].update(disabled=True)
         if ok:
             window["-FIXV_STATUS-"].update("Recolor completed.")
             window["-LOG_BOX-"].print("[Recolor] Completed successfully.", text_color="green")
         else:
             window["-FIXV_STATUS-"].update("Recolor failed.")
             window["-LOG_BOX-"].print("[Recolor] Failed or stopped.", text_color="orange")
+
+    if event == "-FIXV_STOP-":
+        state["stop_requested"] = True
+        if state["current_process"]:
+            try:
+                os.kill(state["current_process"].pid,
+                        signal.CTRL_BREAK_EVENT)
+            except Exception:
+                pass
 
     # ---- RPC server connection ----
     if event == "-CONNECT-":

@@ -21,6 +21,8 @@ and orchestrates a full video colorization pipeline: extraction → AI colorizat
   - [Tab 1 — Extraction](#tab-1--extraction)
   - [Tab 2 — Colorization](#tab-2--colorization)
   - [Tab 3 — Encode / Merge](#tab-3--encode--merge)
+  - [Tab 4 — Fix Image](#tab-4--fix-image)
+  - [Tab 5 — Fix Video](#tab-5--fix-video)
 - [Workflow: Step by Step](#workflow-step-by-step)
   - [Step 1: Extract Reference Frames](#step-1-extract-reference-frames)
   - [Step 2: Colorize Frames (AI)](#step-2-colorize-frames-ai)
@@ -109,7 +111,7 @@ and 4 (scene-change detection, edge-aware frame extraction, color merging,
 and encoding). It is available from [github.com/dan64/vs-cmnet2](https://github.com/dan64/vs-cmnet2):
 
 ```powershell
-pip install packages\vscmnet2-1.0.0-py3-none-any.whl
+pip install packages\vscmnet2-1.0.1-py3-none-any.whl
 ```
 
 To complete the installation of this filter is necessary to install the models, weights and plugins, as described in the filter home page: [vs-cmnet2](https://github.com/dan64/vs-cmnet2#installation)
@@ -220,7 +222,7 @@ set PYTHON_EXE=C:\Users\YourName\.conda\envs\my-env\python.exe
 
 ## Interface Guide
 
-The GUI has four tabs plus a persistent status bar at the bottom.
+The GUI has six tabs plus a persistent status bar at the bottom.
 
 ### Dashboard
 
@@ -313,6 +315,42 @@ The input image is previewed scaled to 370×350 pixels; the full-resolution
 output is stored in memory and saved to disk via the **Save As...** button.
 
 > **Prerequisite**: the DiT RPC Server must be connected (Tab 2 — Connect).
+
+### Tab 5 — Fix Video
+
+![GUI Tab #5](https://github.com/dan64/DiTServerRPC/blob/main/GUI/assets/gui_page6.jpg)
+
+A standalone video recoloring tab that runs a VapourSynth + NVEnc pipeline
+using the selected video, encode script, and two reference images.
+
+| Control | Description |
+|---------|-------------|
+| **Video Directory** | Folder containing the video to recolor |
+| **Select Video** | Dropdown populated from the video directory |
+| **Encode VPY** | VapourSynth script for encoding / recoloring (script: encode_cmnet2_recolor.vpy) |
+| **FPS** | Output frame rate |
+| **VBR Quality** | NVEnc quality target (lower = better) |
+| **Memory Frames** | Max frames buffered by VapourSynth |
+| **Render Speed** | VapourSynth render preset (`auto`, `fast`, `medium`, `slow`, `slower`) |
+| **First Reference** | Load a reference image (drag & drop or Browse) for the start of the clip |
+| **Last Reference** | Load a reference image (drag & drop or Browse) for the end of the clip |
+| **Recolor** | Runs the VapourSynth → NVEnc pipeline in a background thread |
+
+The two reference images guide the recoloring script: they are passed to the
+VapourSynth script as `RefStart` and `RefEnd` parameters. The `RefDir`
+parameter is automatically set to the folder containing the first reference
+image. Only the frames between **RefStart / RefEnd** will be recolored. 
+
+**Startup check**: before launching, the tab verifies that `NVEncC64.exe` exists
+next to `x265.exe` (derived from the x265 path configured in Tab 3). If
+missing, an error popup instructs the user to install NVEncC in `tools\NVEncC`.
+
+The output file is named `[video]_cmnet2_dt-recolor.mkv` and is saved in the
+video directory. The `.h265` intermediate is automatically converted to `.mkv`
+via mkvmerge and deleted.
+
+> **Important**: this tab uses **NVEnc only** — the x265 software encoder is
+> not available here. NVEncC64.exe must be installed.
 
 ---
 

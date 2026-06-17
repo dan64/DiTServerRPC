@@ -17,6 +17,15 @@
     "fix_prompts": [
         "Colorize this image, natural colors."
     ],
+    "fixv_base_dir": "C:/DiTServerRPC_dev/GUI/samples",
+    "fixv_video": "",
+    "fixv_first_ref": "",
+    "fixv_last_ref": "",
+    "fixv_encode_vpy": "encode_cmnet2_recolor.vpy",
+    "fixv_fps": "24000/1001",
+    "fixv_vbr_quality": "25.00",
+    "fixv_memory_frames": "20",
+    "fixv_render_speed": "auto",
     "mkv_path": "C:/DiTServerRPC/GUI/tools/MKVToolNix/mkvmerge.exe",
     "hf_cache": "",
     "prompt": "Colorize this image, natural colors. Strictly preserve all shapes, edges and background details.",
@@ -40,8 +49,8 @@
     "use_sharp": true,
     "rpc_host": "127.0.0.1",
     "rpc_port": 8765,
-    "window_w": 820,
-    "window_h": 705,
+    "window_w": 834,
+    "window_h": 834,
     "model_dir": "",
     "model_path": "svdq-fp4_r32-qwen-image-edit-2509-lightning-4steps-251115.safetensors"
 }

@@ -167,6 +167,16 @@ def load_all_configs():
         "fix_bw":                 True,
         "fix_prompt_max":         "30",
         "fix_prompts":            ["Colorize this image, natural colors."],
+        # --- fix video ---
+        "fixv_base_dir":   r"",
+        "fixv_video":       "",
+        "fixv_first_ref":   r"",
+        "fixv_last_ref":    r"",
+        "fixv_encode_vpy":  "encode_cmnet2.vpy",
+        "fixv_fps":          "24000/1001",
+        "fixv_vbr_quality":  "27.00",
+        "fixv_memory_frames": "20",
+        "fixv_render_speed":  "auto",
         # --- encode ---
         "mkv_path":       r"",
         "hf_cache":       "",
@@ -339,6 +349,12 @@ state = {
     "is_running":      False,
     "total_frames":    -1,
     "fix_prompts":     [],
+    # --- fix video ---
+    "fixv_first_input":        None,   # PIL Image
+    "fixv_first_original_path": "",
+    "fixv_last_input":         None,   # PIL Image
+    "fixv_last_original_path":  "",
+    "fixv_is_running":          False,
 }
 
 
@@ -1338,7 +1354,72 @@ tab5_layout = [
      sg.Button("Overwrite", key="-FIX_OVERWRITE-"),
      sg.Button("Save As...", key="-FIX_SAVE-"),
      sg.Button("Swap Output → Input", key="-FIX_SWAP-")],
-    [sg.Text("", key="-FIX_STATUS-", size=(40,1))],
+     [sg.Text("", key="-FIX_STATUS-", size=(40,1))],
+]
+
+# ---------------------------------------------------------------------------
+# TAB 6 — Fix Video
+# ---------------------------------------------------------------------------
+tab6_layout = [
+    [sg.Text("Fix Video", font=("Any", 14, "bold"))],
+
+    [sg.Text("Video Directory:"),
+     sg.Input(cfg.get("fixv_base_dir", ""), key="-FIXV_BASE_DIR-", enable_events=True, expand_x=True),
+     sg.FolderBrowse()],
+    [sg.Text("Select Video:"),
+     sg.Combo(scan_videos(cfg.get("fixv_base_dir", "")),
+              key="-FIXV_VIDEO_DROPDOWN-", expand_x=True),
+     sg.Button("Refresh", key="-FIXV_REFRESH-")],
+
+    [sg.Text("Encode VPY:"),
+     sg.Combo(scan_files(cfg["script_dir"], "*encode_*.vpy"),
+              key="-FIXV_ENCODE_VPY-", expand_x=True, default_value=cfg.get("fixv_encode_vpy", "encode_cmnet2.vpy"))],
+    [sg.Text("FPS:"),
+     sg.Input(cfg.get("fixv_fps", "24000/1001"), key="-FIXV_FPS-", size=(12, 1)),
+     sg.Text("VBR Quality:"),
+     sg.Combo(nvenc_cq_values, default_value=cfg.get("fixv_vbr_quality", "27.00"),
+              key="-FIXV_VBR_QUALITY-", readonly=True, size=(8, 1)),
+     sg.Text("Memory Frames:"),
+     sg.Combo(memory_values, default_value=cfg.get("fixv_memory_frames", "20"),
+              key="-FIXV_MEMORY_FRAMES-", readonly=True, size=(5, 1)),
+     sg.Text("Render Speed:"),
+     sg.Combo(speed_values, default_value=cfg.get("fixv_render_speed", "auto"),
+              key="-FIXV_RENDER_SPEED-", readonly=True, size=(8, 1))],
+
+    [sg.HorizontalSeparator()],
+
+    # First Reference
+    [sg.Text("First Reference", font=("Any", 12, "bold")),
+     sg.Text("(drag & drop)", font=("Any", 8))],
+    [sg.Button("Load Image", key="-FIXV_FIRST_LOAD-"),
+     sg.Input("", key="-FIXV_FIRST_PATH-", disabled=True, expand_x=True),
+     sg.Button("Browse...", key="-FIXV_FIRST_BROWSE-")],
+
+    [sg.HorizontalSeparator()],
+
+    # Last Reference
+    [sg.Text("Last Reference", font=("Any", 12, "bold")),
+     sg.Text("(drag & drop)", font=("Any", 8))],
+    [sg.Button("Load Image", key="-FIXV_LAST_LOAD-"),
+     sg.Input("", key="-FIXV_LAST_PATH-", disabled=True, expand_x=True),
+     sg.Button("Browse...", key="-FIXV_LAST_BROWSE-")],
+
+    [sg.HorizontalSeparator()],
+
+    # Images side by side (like Tab 5)
+    [sg.Column([
+        [sg.Text("First Reference")],
+        [sg.Image(data=b'', key="-FIXV_FIRST_IMG-", size=(370, 340), background_color="black")],
+    ]),
+     sg.Column([
+        [sg.Text("Last Reference")],
+        [sg.Image(data=b'', key="-FIXV_LAST_IMG-", size=(370, 340), background_color="black")],
+    ])],
+
+    [sg.HorizontalSeparator()],
+
+    [sg.Button("Recolor", key="-FIXV_RECOLOR-", size=(16, 2), button_color=("white", "#1a6b1a")),
+     sg.Text("", key="-FIXV_STATUS-", size=(50, 1))],
 ]
 
 # ---------------------------------------------------------------------------
@@ -1350,7 +1431,8 @@ layout = [
          sg.Tab("1. Extraction", tab2_layout),
          sg.Tab("2. Colorization", tab3_layout),
          sg.Tab("3. Encode/Merge", tab4_layout),
-         sg.Tab("4. Fix Image", tab5_layout)]
+         sg.Tab("4. Fix Image", tab5_layout),
+          sg.Tab("5. Fix Video", tab6_layout)]
     ], expand_x=True, expand_y=True)],
     [sg.Button("Save Global Settings"),
      sg.Text("Status: OK", size=(70, 1), expand_x=True,
@@ -1383,14 +1465,200 @@ def _handle_drop(event):
     except Exception:
         pass
 
+# ---- Drag‑and‑drop for Fix Video tab ----
+def _handle_drop_fixv_first(event):
+    """Callback for tkinterDnD drop on First Reference field."""
+    try:
+        data = event.data
+        if isinstance(data, str):
+            first = data.splitlines()[0] if data else ""
+        elif isinstance(data, (list, tuple)):
+            first = data[0] if data else ""
+        else:
+            first = str(data)
+        if first.startswith("{") and first.endswith("}"):
+            first = first[1:-1]
+        if first:
+            window["-FIXV_FIRST_PATH-"].update(first)
+            window.write_event_value("-FIXV_FIRST_LOAD-", None)
+    except Exception:
+        pass
+
+def _handle_drop_fixv_last(event):
+    """Callback for tkinterDnD drop on Last Reference field."""
+    try:
+        data = event.data
+        if isinstance(data, str):
+            first = data.splitlines()[0] if data else ""
+        elif isinstance(data, (list, tuple)):
+            first = data[0] if data else ""
+        else:
+            first = str(data)
+        if first.startswith("{") and first.endswith("}"):
+            first = first[1:-1]
+        if first:
+            window["-FIXV_LAST_PATH-"].update(first)
+            window.write_event_value("-FIXV_LAST_LOAD-", None)
+    except Exception:
+        pass
+
 try:
     from tkinterdnd2 import TkinterDnD, DND_FILES
     TkinterDnD.require(window.TKroot)
+    # Fix Image tab
     window["-FIX_PATH-"].widget.drop_target_register(DND_FILES)
     window["-FIX_PATH-"].widget.dnd_bind("<<Drop>>", _handle_drop)
+    # Fix Video tab — First Reference
+    window["-FIXV_FIRST_PATH-"].widget.drop_target_register(DND_FILES)
+    window["-FIXV_FIRST_PATH-"].widget.dnd_bind("<<Drop>>", _handle_drop_fixv_first)
+    # Fix Video tab — Last Reference
+    window["-FIXV_LAST_PATH-"].widget.drop_target_register(DND_FILES)
+    window["-FIXV_LAST_PATH-"].widget.dnd_bind("<<Drop>>", _handle_drop_fixv_last)
     print("[DnD] tkinterDnD initialized", flush=True)
 except Exception as _dnd_e:
     print(f"[DnD] not available: {_dnd_e}", flush=True)
+
+# ---------------------------------------------------------------------------
+# FIX VIDEO — Recolor thread
+# ---------------------------------------------------------------------------
+def _fixv_recolor_thread(values, window):
+    """Background thread: re-encode video with colorization via NVEnc."""
+    try:
+        state["fixv_is_running"] = True
+        state["stop_requested"] = False
+
+        def _log(msg):
+            window.write_event_value("-LOG-", f"[Recolor] {msg}")
+
+        base_dir    = values["-FIXV_BASE_DIR-"].strip()
+        video_name  = values["-FIXV_VIDEO_DROPDOWN-"]
+        fps_val       = values["-FIXV_FPS-"].strip() or "24000/1001"
+        vbr_quality   = values["-FIXV_VBR_QUALITY-"]
+        memory_frames = values["-FIXV_MEMORY_FRAMES-"].strip() or "20"
+        render_speed  = values["-FIXV_RENDER_SPEED-"].strip() or "auto"
+        encode_vpy  = values["-FIXV_ENCODE_VPY-"]
+
+        if not base_dir or not video_name:
+            _log("Missing video directory or video selection.")
+            return
+        if not encode_vpy:
+            _log("Missing encode VPY script selection.")
+            return
+
+        orig_video_path = os.path.join(base_dir, video_name)
+        if not os.path.isfile(orig_video_path):
+            _log(f"Video not found: {orig_video_path}")
+            return
+
+        # Get video info
+        info = get_video_info(values["-VSPIPE-"], orig_video_path,
+                              values["-SCRIPT_DIR-"], _log)
+        if not info:
+            _log("Failed to get video info.")
+            return
+
+        total_frames = info.get("frames", -1)
+        fps_detected = info.get("fps", fps_val)
+
+        # Ref directory from the first reference image
+        ref_start = state.get("fixv_first_original_path", "")
+        ref_end   = state.get("fixv_last_original_path", "")
+        ref_dir   = os.path.dirname(ref_start) if ref_start else os.path.join(base_dir, "ref_qwen")
+
+        video_base_path = os.path.splitext(video_name)[0]
+        sfx = "_dt-recolor.h265" if "cmnet2" in video_base_path else "_cmnet2_dt-recolor.h265"
+        out_video_file = os.path.join(base_dir, video_base_path + sfx)
+
+        # Build VapourSynth command
+        encode_vpy_path = os.path.join(values["-SCRIPT_DIR-"], encode_vpy)
+        vsp_cmd = (f'"{values["-VSPIPE-"]}" "{encode_vpy_path}" - '
+                   f'-a "VideoPath={orig_video_path}" -a "RefDir={ref_dir}" '
+                   f'-a "RefStart={ref_start}" -a "RefEnd={ref_end}" '
+                   f'-a "RenderSpeed={render_speed}" -a "MemoryFrames={memory_frames}" '
+                   f'--outputindex 0 -c y4m')
+
+        # Build NVEnc command (forced)
+        res = f'{info["width"]}x{info["height"]}'
+        nvenc_exe = os.path.join(Path(values["-X265-"]).parent.parent / "NVEncC", "NVEncC64.exe")
+        nvenc_opt = (
+            "--profile main10 --level auto --tier high --sar 1:1 "
+            "--lookahead 16 --output-depth 10 --aq --aq-strength 5 "
+            "--aq-temporal --gop-len 0 --ref 3 --bframes 5 --bref-mode auto "
+            "--mv-precision Q-pel --lookahead-level 1 --preset default "
+            "--cuda-schedule sync"
+        )
+        nvenc_cmd = (
+            f'"{nvenc_exe}" --y4m -i - --input-res {res} '
+            f'--fps {fps_detected} --codec h265 --vbr 0 '
+            f'--vbr-quality {vbr_quality} '
+            f'{nvenc_opt} --output "{out_video_file}"'
+        )
+
+        full_cmd = f"{vsp_cmd} | {nvenc_cmd}"
+        _log("-" * 64)
+        _log(f"[RECOLOR] {full_cmd.strip()}")
+        _log("-" * 64)
+
+        proc = subprocess.Popen(
+            full_cmd, shell=True,
+            stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+            text=True, bufsize=1, universal_newlines=True,
+            creationflags=(subprocess.CREATE_NEW_PROCESS_GROUP
+                           if os.name == 'nt' else 0),
+        )
+        state["current_process"] = proc
+
+        # NVEncC outputs lines like: "encoded 123 frames, ..."
+        frame_re = re.compile(r"(\d+)\s+frames?\b", re.IGNORECASE)
+        start_time = time.time()
+        curr_frame = 0
+
+        for line in proc.stdout:
+            if state["stop_requested"]:
+                break
+            line_s = line.strip()
+            match = frame_re.search(line_s)
+            if match and total_frames > 0:
+                try:
+                    curr_frame = int(match.group(1))
+                except (ValueError, IndexError):
+                    pass
+                p = min(100, int((curr_frame / total_frames) * 100))
+                eta = get_eta_string(curr_frame, total_frames, start_time)
+                update_status(window, f"Status: ETA RECOLOR: {eta}...", "info")
+                window.write_event_value("-PROGRESS-", (p, f"{p}% {curr_frame}/{total_frames}"))
+                window.write_event_value("-LOG-", f"[Recolor] {line_s}")
+            else:
+                if "----------------------" not in line_s:
+                    _log(line_s)
+
+        proc.wait()
+
+        p = min(100, int((curr_frame / total_frames) * 100)) if total_frames > 0 else 100
+        window.write_event_value("-PROGRESS-", (p, f"{p}% {curr_frame}/{total_frames}"))
+
+        if p < 90 or proc.returncode != 0:
+            update_status(window, "Status: Recolor Failed", "error")
+            _log(f"[FAILED] Recolor completed only {curr_frame}/{total_frames}")
+            window.write_event_value("-FIXV_DONE-", False)
+        else:
+            update_status(window, "Status: OK", "success")
+            _log(f"[COMPLETED] Recolor: {orig_video_path} @ {fps_detected} fps")
+            # Create MKV and delete .h265
+            out_mkv_path = Path(out_video_file).with_suffix(".mkv")
+            create_video_mkv(values["-MKV_PATH-"], out_video_file, fps_detected, _log)
+            if out_mkv_path.exists() and out_mkv_path.stat().st_size > 0:
+                _log(f"MKV created: {out_mkv_path}")
+            else:
+                _log(f"MKV not created, keeping .h265: {out_video_file}")
+            window.write_event_value("-FIXV_DONE-", True)
+
+    except Exception as e:
+        window.write_event_value("-LOG-", f"[Recolor] Fatal error: {e}")
+        window.write_event_value("-FIXV_DONE-", False)
+    finally:
+        state["fixv_is_running"] = False
+        state["current_process"] = None
 
 # ===========================================================================
 # EVENT LOOP
@@ -1514,6 +1782,97 @@ while True:
         window["-FIX_COLORIZE-"].update(disabled=False)
         window["-FIX_COLORIZE_RND-"].update(disabled=False)
 
+    # ---- Fix Video tab ----
+    if event == "-FIXV_FIRST_LOAD-":
+        path = values["-FIXV_FIRST_PATH-"]
+        if path and os.path.isfile(path):
+            try:
+                img = Image.open(path).convert("RGB")
+                state["fixv_first_input"] = img.copy()
+                state["fixv_first_original_path"] = path
+                img.thumbnail((370, 340), Image.Resampling.LANCZOS)
+                buf = io.BytesIO()
+                img.save(buf, format="PNG")
+                window["-FIXV_FIRST_IMG-"].update(data=buf.getvalue())
+            except Exception:
+                pass
+
+    if event == "-FIXV_FIRST_BROWSE-":
+        _script = os.path.join(os.path.dirname(__file__), "load_image_DtD_GUI.py")
+        _proc = subprocess.run(
+            [sys.executable, _script],
+            capture_output=True, text=True, timeout=120)
+        _path = (_proc.stdout or "").strip()
+        if _path and os.path.isfile(_path):
+            window["-FIXV_FIRST_PATH-"].update(_path)
+            window.write_event_value("-FIXV_FIRST_LOAD-", None)
+
+    if event == "-FIXV_LAST_LOAD-":
+        path = values["-FIXV_LAST_PATH-"]
+        if path and os.path.isfile(path):
+            try:
+                img = Image.open(path).convert("RGB")
+                state["fixv_last_input"] = img.copy()
+                state["fixv_last_original_path"] = path
+                img.thumbnail((370, 340), Image.Resampling.LANCZOS)
+                buf = io.BytesIO()
+                img.save(buf, format="PNG")
+                window["-FIXV_LAST_IMG-"].update(data=buf.getvalue())
+            except Exception:
+                pass
+
+    if event == "-FIXV_LAST_BROWSE-":
+        _script = os.path.join(os.path.dirname(__file__), "load_image_DtD_GUI.py")
+        _proc = subprocess.run(
+            [sys.executable, _script],
+            capture_output=True, text=True, timeout=120)
+        _path = (_proc.stdout or "").strip()
+        if _path and os.path.isfile(_path):
+            window["-FIXV_LAST_PATH-"].update(_path)
+            window.write_event_value("-FIXV_LAST_LOAD-", None)
+
+    if event in ("-FIXV_REFRESH-", "-FIXV_BASE_DIR-"):
+        vids = scan_videos(values["-FIXV_BASE_DIR-"])
+        selected = (values["-FIXV_VIDEO_DROPDOWN-"]
+                    if values["-FIXV_VIDEO_DROPDOWN-"] in vids
+                    else (vids[0] if vids else ""))
+        window["-FIXV_VIDEO_DROPDOWN-"].update(values=vids, value=selected)
+
+    if event == "-FIXV_RECOLOR-":
+        if state["fixv_is_running"] or state["is_running"]:
+            sg.popup_error("Another task is already running.")
+        elif not values["-FIXV_VIDEO_DROPDOWN-"]:
+            sg.popup_error("Select a video file first.")
+        else:
+            # Check NVEncC64.exe
+            nvenc_exe = os.path.join(Path(values["-X265-"]).parent.parent, "NVEncC", "NVEncC64.exe")
+            if not os.path.isfile(nvenc_exe):
+                sg.popup_error(
+                    f"NVEncC64.exe not found.\n\n"
+                    f"Expected location: {nvenc_exe}\n\n"
+                    f"Please install NVEncC in the folder:\n"
+                    f"  tools\\NVEncC",
+                    title="Error")
+            else:
+                window["-FIXV_RECOLOR-"].update(disabled=True)
+                window["-FIXV_STATUS-"].update("Recoloring...")
+                window["-LOG_BOX-"].print("--- RECOLOR STARTED ---\n")
+                threading.Thread(
+                    target=_fixv_recolor_thread,
+                    args=(values, window),
+                    daemon=True,
+                ).start()
+
+    if event == "-FIXV_DONE-":
+        ok = values["-FIXV_DONE-"]
+        window["-FIXV_RECOLOR-"].update(disabled=False)
+        if ok:
+            window["-FIXV_STATUS-"].update("Recolor completed.")
+            window["-LOG_BOX-"].print("[Recolor] Completed successfully.", text_color="green")
+        else:
+            window["-FIXV_STATUS-"].update("Recolor failed.")
+            window["-LOG_BOX-"].print("[Recolor] Failed or stopped.", text_color="orange")
+
     # ---- RPC server connection ----
     if event == "-CONNECT-":
         host = values["-RPC_HOST-"].strip()
@@ -1542,8 +1901,10 @@ while True:
     if event == "-SCRIPT_DIR-":
         ev = scan_files(values["-SCRIPT_DIR-"], "cmnet2_extract_*.vpy")
         if ev: window["-EXTRACT_VPY-"].update(values=ev)
-        ev = scan_files(values["-SCRIPT_DIR-"], "cmnet2_encode_*.vpy")
-        if ev: window["-ENCODE_VPY-"].update(values=ev)
+        ev = scan_files(values["-SCRIPT_DIR-"], "*encode_*.vpy")
+        if ev:
+            window["-ENCODE_VPY-"].update(values=ev)
+            window["-FIXV_ENCODE_VPY-"].update(values=ev)
 
     if event in ("Refresh", "-BASE_DIR-"):
         vids = scan_videos(values["-BASE_DIR-"])
@@ -1588,6 +1949,16 @@ while True:
             "fix_bw":                 values["-FIX_BW-"],
             "fix_prompt_max":         values["-FIX_PROMPT_MAX-"],
             "fix_prompts":            state["fix_prompts"],
+            # fix video
+            "fixv_base_dir":          values["-FIXV_BASE_DIR-"],
+            "fixv_video":             values["-FIXV_VIDEO_DROPDOWN-"],
+            "fixv_first_ref":         values["-FIXV_FIRST_PATH-"],
+            "fixv_last_ref":          values["-FIXV_LAST_PATH-"],
+            "fixv_encode_vpy":        values["-FIXV_ENCODE_VPY-"],
+            "fixv_fps":               values["-FIXV_FPS-"],
+            "fixv_vbr_quality":        values["-FIXV_VBR_QUALITY-"],
+            "fixv_memory_frames":      values["-FIXV_MEMORY_FRAMES-"],
+            "fixv_render_speed":       values["-FIXV_RENDER_SPEED-"],
             "mkv_path":              values["-MKV_PATH-"],
             "hf_cache":              values["-CACHE_DIR-"],
             "prompt":                values["-PROMPT-"],

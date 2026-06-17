@@ -49,6 +49,31 @@ pip show nunchaku    # Expected: 1.2.1+cu13.0torch2.10
 
 ## 📢 What's New
 
+### 2026-06-17 — Fix Video Tab (GUI)
+
+A standalone **Fix Video** tab (`Tab 5`) has been added to the desktop GUI (`GUI/CMNET2_colorize_client_GUI.py`).
+It runs a VapourSynth + NVEnc pipeline to recolor a video using two reference images:
+
+![GUI Tab #5](https://github.com/dan64/DiTServerRPC/blob/main/GUI/assets/gui_page6.jpg)
+
+1. **Select** a video and an encode VPY script
+2. **Load** two reference images (First / Last) via drag-and-drop or Browse
+3. **Recolor** — runs the VapourSynth → NVEnc pipeline and produces `_dt-recolor.mkv`
+
+Key features:
+
+- **NVEnc-only**: uses GPU hardware encoding (NVEncC64.exe required)
+- **RefStart / RefEnd**: reference images passed to the VapourSynth script as parameters
+- **RefDir auto-detection**: set to the folder of the first reference image
+- **Configurable**: FPS, VBR Quality, Memory Frames, Render Speed
+- **MKV output**: `.h265` intermediate automatically muxed to `.mkv` and deleted
+- **Pre-flight check**: verifies NVEncC64.exe exists before starting
+
+The Fix Video tab is independent of the batch pipeline and does not require the RPC server.
+Only the frames between **RefStart / RefEnd** will be recolored. 
+
+> **Prerequisite**: NVEncC must be installed in `tools\NVEncC\` (see [GUI README](GUI/README_GUI.md#5-install-external-tools)).
+
 ### 2026-06-12 — Fix Image Tab (GUI)
 
 A standalone **Fix Image** tab (`Tab 4`) has been added to the desktop GUI (`GUI/CMNET2_colorize_client_GUI.py`).

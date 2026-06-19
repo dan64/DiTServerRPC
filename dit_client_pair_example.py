@@ -3,7 +3,7 @@
 Author: Dan64
 Date: 2026-05-10
 -------------------------------------------------------------------------------
-DiT Colorize RPC Client  :  paired inference example
+HAVC DiT Client  :  paired inference example
 Connects to a running dit_rpc_server instance and colorizes two B&W frames
 in a single inference pass.
 

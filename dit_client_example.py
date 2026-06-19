@@ -3,7 +3,7 @@
 Author: Dan64
 Date: 2026-01-14
 -------------------------------------------------------------------------------
-DiT Colorize RPC Client  :  example
+HAVC DiT Client  :  example
 Connects to a running dit_rpc_server instance and colorizes the sample image
 assets/santa_bw.png, saving the result as assets/santa_colorized.png.
 

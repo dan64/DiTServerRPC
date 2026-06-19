@@ -1,6 +1,6 @@
 @echo off
 :: =============================================================================
-:: run_client_example.cmd   :   DiT Colorize RPC Client launcher (ComfyUI portable)
+:: run_client_example.cmd   :  HAVC DiT Client launcher (ComfyUI portable)
 ::
 :: Connects to a running dit_rpc_server and colorizes assets\santa_bw.png.
 :: The pipeline must already be loaded on the server.
@@ -52,7 +52,7 @@ if not exist "%CLIENT_SCRIPT%" (
 :: LAUNCH
 :: ---------------------------------------------------------------------------
 echo ============================================================
-echo  DiT Colorize RPC Client  :  example
+echo  HAVC DiT Client  :  example
 echo  Server      : %HOST%:%PORT%
 echo  Steps       : %STEPS%
 echo  Input       : %CLIENT_DIR%\assets\santa_bw.png

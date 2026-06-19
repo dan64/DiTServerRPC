@@ -1,6 +1,6 @@
-# CMNET2 Colorize Client — GUI
+# HAVC Client — GUI
 
-A FreeSimpleGUI-based desktop client that connects to the [DiT Colorize RPC Server](../README.md)
+A FreeSimpleGUI-based desktop client that connects to the [HAVC DiT Server](../README.md)
 and orchestrates a full video colorization pipeline: extraction → AI colorization → encoding → merge.
 
 ---
@@ -45,7 +45,7 @@ Original Video
       │
       ▼
  Step 2: COLORIZE
- (RPC → DiT RPC Server → colorized frames in ref_qwen/)
+ (RPC → HAVC DiT Server → colorized frames in ref_qwen/)
       │
       ▼
  Step 3: ENCODE
@@ -86,7 +86,7 @@ DiT RPC server. If you haven't set up the server yet, follow the
 ### 1. Activate the shared virtual environment
 
 ```powershell
-# From the project root (DiTServerRPC)
+# From the project root (HAVCServerDiT)
 .venv\Scripts\activate
 ```
 
@@ -141,7 +141,7 @@ The GUI relies on three command-line tools that must be present on disk
 | **NVEncC** | NVIDIA GPU encoder | `GUI/tools/NVEncC/NVEncC64.exe` | [rigaya/NVEnc](https://github.com/rigaya/NVEnc/releases) |
 | **MKVToolNix** | `.h265` → `.mkv` muxing | `GUI/tools/MKVToolNix/mkvmerge.exe` | [MKVToolNix](https://mkvtoolnix.download/) |
 
-> **Quick setup with Release 1.0.0**: the project's [Release 1.0.0](https://github.com/dan64/DiTServerRPC/releases/tag/v1.0.0)
+> **Quick setup with Release 1.0.0**: the project's [Release 1.0.0](https://github.com/dan64/HAVCServerDiT/releases/tag/v1.0.0)
 > includes a `tools.zip` archive containing `x265.exe` and `mkvmerge.exe`.
 > Download it and extract its contents directly into `GUI/tools/` so that the
 > default paths match without any additional configuration:
@@ -184,7 +184,7 @@ command prompt:
 1. Right-click on the desktop → **New → Shortcut**
 2. For the location, enter the full path to the `.vbs` file:
    ```
-   D:\PProjects\DiTServerRPC\GUI\run_colorize_client_GUI.vbs
+   D:\PProjects\HAVCServerDiT\GUI\run_colorize_client_GUI.vbs
    ```
 3. Click **Next**, give the shortcut a name (e.g. *CMNET2 Colorize Client*)
 4. Click **Finish**
@@ -226,7 +226,7 @@ The GUI has six tabs plus a persistent status bar at the bottom.
 
 ### Dashboard
 
-![GUI Dashboard](https://github.com/dan64/DiTServerRPC/blob/main/GUI/assets/gui_page1.jpg)
+![GUI Dashboard](https://github.com/dan64/HAVCServerDiT/blob/main/GUI/assets/gui_page1.jpg)
 
 - **Task checkboxes**: enable/disable each pipeline step
 - **START PIPELINE**: runs the selected steps sequentially
@@ -238,7 +238,7 @@ The GUI has six tabs plus a persistent status bar at the bottom.
 
 ### Tab 1 — Extraction
 
-![GUI Tab #1](https://github.com/dan64/DiTServerRPC/blob/main/GUI/assets/gui_page2.jpg)
+![GUI Tab #1](https://github.com/dan64/HAVCServerDiT/blob/main/GUI/assets/gui_page2.jpg)
 
 | Setting | Description |
 |---------|-------------|
@@ -256,7 +256,7 @@ resolution, FPS, frame count, and pixel format.
 
 ### Tab 2 — Colorization
 
-![GUI Tab #2](https://github.com/dan64/DiTServerRPC/blob/main/GUI/assets/gui_page3.jpg)
+![GUI Tab #2](https://github.com/dan64/HAVCServerDiT/blob/main/GUI/assets/gui_page3.jpg)
 
 | Setting | Description |
 |---------|-------------|
@@ -273,7 +273,7 @@ as frames are processed.
 
 ### Tab 3 — Encode / Merge
 
-![GUI Tab #3](https://github.com/dan64/DiTServerRPC/blob/main/GUI/assets/gui_page4.jpg)
+![GUI Tab #3](https://github.com/dan64/HAVCServerDiT/blob/main/GUI/assets/gui_page4.jpg)
 
 | Setting | Description |
 |---------|-------------|
@@ -291,7 +291,7 @@ as frames are processed.
 
 ### Tab 4 — Fix Image
 
-![GUI Tab #4](https://github.com/dan64/DiTServerRPC/blob/main/GUI/assets/gui_page5.jpg)
+![GUI Tab #4](https://github.com/dan64/HAVCServerDiT/blob/main/GUI/assets/gui_page5.jpg)
 
 A standalone image colorization tab independent of the video pipeline.
 Supports both SHM (same-host) and PNG-over-RPC (remote server) transport.
@@ -314,11 +314,11 @@ Supports both SHM (same-host) and PNG-over-RPC (remote server) transport.
 The input image is previewed scaled to 370×350 pixels; the full-resolution
 output is stored in memory and saved to disk via the **Save As...** button.
 
-> **Prerequisite**: the DiT RPC Server must be connected (Tab 2 — Connect).
+> **Prerequisite**: the HAVC DiT Server must be connected (Tab 2 — Connect).
 
 ### Tab 5 — Fix Video
 
-![GUI Tab #5](https://github.com/dan64/DiTServerRPC/blob/main/GUI/assets/gui_page6.jpg)
+![GUI Tab #5](https://github.com/dan64/HAVCServerDiT/blob/main/GUI/assets/gui_page6.jpg)
 
 A standalone video recoloring tab that runs a VapourSynth + NVEnc pipeline
 using the selected video, encode script, and two reference images.
@@ -371,7 +371,7 @@ The extraction parameters control how aggressively frames are selected:
 
 ### Step 2: Colorize Frames (AI)
 
-The GUI connects to the DiT RPC Server and sends each extracted frame for
+The GUI connects to the HAVC DiT Server and sends each extracted frame for
 colorization. Results are saved to `ref_qwen/`.
 
 Two modes are available:

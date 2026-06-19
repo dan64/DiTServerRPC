@@ -9,7 +9,7 @@ Author: Dan64
 Date: 2024-12-26
 LastEditTime: 2026-01-14
 -------------------------------------------------------------------------------
-HAVC Colorize RPC Server
+HAVC DiT Server
 Exposes the colorization pipeline via XML-RPC.
 
 Start on the GPU machine:
@@ -1054,7 +1054,7 @@ def main():
     server.register_instance(service)
     server.register_introspection_functions()
 
-    logging.info(f"HAVC Colorize RPC Server listening on {args.host}:{args.port}")
+    logging.info(f"HAVC DiT Server listening on {args.host}:{args.port}")
     logging.info("Press Ctrl+C to stop.")
 
     try:

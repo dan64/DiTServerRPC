@@ -1,6 +1,6 @@
-# DiT Colorize RPC Server
+# HAVC Server DiT
 
-An XML-RPC server that exposes a GPU-accelerated colorization pipeline for black-and-white images and video frames.
+Hybrid Automatic Video Colorizer (HAVC) server that exposes a GPU-accelerated colorization pipeline for black-and-white images and video frames based on Diffusion Transformer (DiT) models.
 Two backends, one API : pick the one that fits your hardware:
 
 - **nunchaku-qwen**: SVDQuant FP4/INT4 transformer via [Nunchaku](https://github.com/nunchaku-ai/nunchaku) : **4 sec/frame**, requires RTX 30/40/50 (16 GB VRAM) & CUDA 13.0
@@ -85,7 +85,7 @@ pip show nunchaku    # Expected: 1.2.1+cu13.0torch2.10
 A standalone **Fix Video** tab (`Tab 5`) has been added to the desktop GUI (`GUI/CMNET2_colorize_client_GUI.py`).
 It runs a VapourSynth + NVEnc pipeline to recolor a video using two reference images:
 
-![GUI Tab #5](https://github.com/dan64/DiTServerRPC/blob/main/GUI/assets/gui_page6.jpg)
+![GUI Tab #5](https://github.com/dan64/HAVCServerDiT/blob/main/GUI/assets/gui_page6.jpg)
 
 1. **Select** a video and an encode VPY script
 2. **Load** two reference images (First / Last) via drag-and-drop or Browse
@@ -110,7 +110,7 @@ Only the frames between **RefStart / RefEnd** will be recolored.
 A standalone **Fix Image** tab (`Tab 4`) has been added to the desktop GUI (`GUI/CMNET2_colorize_client_GUI.py`).
 It allows single-image colorization with seed control, drag-and-drop file loading, and preview:
 
-![GUI Tab #4](https://github.com/dan64/DiTServerRPC/blob/main/GUI/assets/gui_page5.jpg)
+![GUI Tab #4](https://github.com/dan64/HAVCServerDiT/blob/main/GUI/assets/gui_page5.jpg)
 
 1. **Load** a B&W image via drag-and-drop (`GUI/load_image_DtD_GUI.py`) or the Browse button
 2. **Colorize** with fixed seed (42) or random seed for variation
@@ -138,15 +138,15 @@ A **FreeSimpleGUI desktop client** (`GUI/CMNET2_colorize_client_GUI.py`) has bee
 It orchestrates the full video colorization pipeline from a single graphical interface:
 
 1. **Extract** reference frames via VapourSynth + scene-change detection
-2. **Colorize** frames via the DiT RPC Server (standard or paired inference)
+2. **Colorize** frames via the HAVC DiT Server (standard or paired inference)
 3. **Encode** the result as H.265 (x265 or NVEnc)
 4. **Merge** the AI output with an existing color clip (optional, luminance-guided chroma blend)
 
-![GUI Tab #2](https://github.com/dan64/DiTServerRPC/blob/main/GUI/assets/gui_page3.jpg)
+![GUI Tab #2](https://github.com/dan64/HAVCServerDiT/blob/main/GUI/assets/gui_page3.jpg)
 
 See [GUI/README_GUI.md](GUI/README_GUI.md) for installation, setup, and usage instructions.
 
-> **Prerequisite**: the DiT RPC Server must be running before the GUI can colorize frames.
+> **Prerequisite**: the HAVC DiT Server must be running before the GUI can colorize frames.
 
 ---
 
@@ -247,8 +247,8 @@ Clone the repository with git : this ensures correct line endings for all files
 (`.gitattributes` is applied automatically at checkout):
 
 ```bash
-git clone https://github.com/dan64/DiTServerRPC.git
-cd DiTServerRPC
+git clone https://github.com/dan64/HAVCServerDiT.git
+cd HAVCServerDiT
 ```
 
 Then create and activate the virtual environment inside the project directory:

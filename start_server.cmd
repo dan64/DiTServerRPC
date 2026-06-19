@@ -1,6 +1,6 @@
 @echo off
 :: =============================================================================
-:: start_server.cmd   :   DiT Colorize RPC Server launcher (Windows)
+:: start_server.cmd   :   HAVC DiT Server launcher (Windows)
 ::
 :: Usage:
 ::   start_server.cmd          -> loads Q4_K_S GGUF config  (default, 12 GB VRAM)
@@ -127,7 +127,7 @@ set CMD=%CMD% --pipeline-config "%CONFIG_PATH%"
 set CMD=%CMD% --logfile "%LOGFILE%"
 
 echo ============================================================
-echo  DiT Colorize RPC Server
+echo  HAVC DiT Server
 echo  Backend     : %BACKEND%
 echo  Config      : %CONFIG_PATH%
 echo  Listening on: %HOST%:%PORT%

@@ -1,6 +1,6 @@
 @echo off
 :: =============================================================================
-:: run_client_pair_example.cmd   :   DiT Colorize RPC paired inference launcher
+:: run_client_pair_example.cmd   :   HAVC DiT paired inference launcher
 ::
 :: Colorizes assets\sample1_bw.jpg and assets\sample2_bw.jpg in a single
 :: inference pass (faster, temporally consistent).
@@ -49,7 +49,7 @@ if not exist "%CLIENT_SCRIPT%" (
 :: LAUNCH
 :: ---------------------------------------------------------------------------
 echo ============================================================
-echo  DiT Colorize RPC Client  :  paired inference
+echo  HAVC DiT Client  :  paired inference
 echo  Server      : %HOST%:%PORT%
 echo  Input 1     : %CLIENT_DIR%\assets\sample1_bw.jpg
 echo  Input 2     : %CLIENT_DIR%\assets\sample2_bw.jpg

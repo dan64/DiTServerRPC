@@ -4,7 +4,7 @@ Author: Dan64
 Date: 2024-12-26
 LastEditTime: 2026-06-07
 -------------------------------------------------------------------------------
- GUI Client for batch colorization via RPC.
+ GUI Client for batch colorization for HAVC DiT Server.
  
  The AI pipeline runs on the server (CMNET2_colorize_server.py).
  This client connects via XML-RPC and sends colorization requests.
@@ -1443,7 +1443,7 @@ layout = [
      sg.Button("Exit")],
 ]
 
-window = sg.Window("CMNET2 Master Suite", layout, finalize=True,
+window = sg.Window("HAVC DiT Server GUI", layout, finalize=True,
                    resizable=True, size=(cfg["window_w"], cfg["window_h"]))
 
 # ---- Drag‑and‑drop for Fix Image tab ----

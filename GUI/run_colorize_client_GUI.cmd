@@ -1,6 +1,6 @@
 @echo off
 :: =============================================================================
-:: run_colorize_client_GUI.cmd   :   CMNET2 Colorize Client GUI launcher (Windows)
+:: run_colorize_client_GUI.cmd   :  HAVC DiT Client GUI launcher (Windows)
 ::
 :: Usage:
 ::   run_colorize_client_GUI.cmd
@@ -58,7 +58,7 @@ set PYTHON_EXE=python
 :: LAUNCH
 :: ---------------------------------------------------------------------------
 echo ============================================================
-echo  CMNET2 Colorize Client GUI
+echo  HAVC DiT Client GUI
 echo  Script dir : %GUI_DIR%
 echo  Python     : %PYTHON_EXE%
 echo ============================================================

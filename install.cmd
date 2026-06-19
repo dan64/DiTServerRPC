@@ -1,6 +1,6 @@
 @echo off
 :: =============================================================================
-:: install.cmd : DiT Colorize RPC Server : environment installer (Windows)
+:: install.cmd : HAVC DiT Server : environment installer (Windows)
 ::
 :: Installs all required Python packages into the currently active virtual
 :: environment (or the conda environment specified below).
@@ -82,7 +82,7 @@ set PYTHON_EXE=python
 :: BANNER
 :: ---------------------------------------------------------------------------
 echo ============================================================
-echo  DiT Colorize RPC Server : Environment Installer
+echo  HAVC DiT Server : Environment Installer
 echo  Python : %PYTHON_EXE%
 echo  Dir    : %INSTALL_DIR%
 echo ============================================================

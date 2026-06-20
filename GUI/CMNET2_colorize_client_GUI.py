@@ -166,7 +166,7 @@ def load_all_configs():
         "fix_steps":              "2",
         "fix_bw":                 True,
         "fix_prompt_max":         "30",
-        "fix_prompts":            ["Colorize this image, natural colors."],
+        "fix_prompts":            ["color this image, natural colors."],
         # --- fix video ---
         "fixv_base_dir":   r"",
         "fixv_video":       "",
@@ -180,7 +180,7 @@ def load_all_configs():
         # --- encode ---
         "mkv_path":       r"",
         "hf_cache":       "",
-        "prompt":         "Colorize this image, natural colors. Strictly preserve all shapes, edges and background details.",
+        "prompt":         "color this image, natural colors. Strictly preserve all shapes, edges and background details.",
         "shutdown_on_complete": False,
         "dupe_first_frame":     False,
         "do_step1":       False,
@@ -1046,7 +1046,7 @@ def orchestrator(init_values, window):
 # GUI LAYOUT
 # ===========================================================================
 cfg = load_all_configs()
-state["fix_prompts"] = cfg.get("fix_prompts", ["Colorize this image, natural colors."])
+state["fix_prompts"] = cfg.get("fix_prompts", ["color this image, natural colors."])
 sg.theme("DarkBlue14")
 
 merge_values:      list[str] = [f"{x/100:.2f}" for x in range(20, 75, 5)]
@@ -1716,7 +1716,7 @@ while True:
             window["-FIX_STATUS-"].update("Swapped: output → input")
 
     if event == "-FIX_PROMPT_CLEAR-":
-        state["fix_prompts"] = [cfg.get("fix_prompts", ["Colorize this image, natural colors."])[0]]
+        state["fix_prompts"] = [cfg.get("fix_prompts", ["color this image, natural colors."])[0]]
         window["-FIX_PROMPT-"].update(values=state["fix_prompts"],
                                      value=state["fix_prompts"][0])
 

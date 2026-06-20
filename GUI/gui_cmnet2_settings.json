@@ -15,7 +15,7 @@
     "fix_bw": false,
     "fix_prompt_max": "30",
     "fix_prompts": [
-        "Colorize this image, natural colors."
+        "color this image, natural colors."
     ],
     "fixv_base_dir": "C:/HAVCServerDiT/GUI/samples",
     "fixv_video": "",
@@ -28,7 +28,7 @@
     "fixv_render_speed": "auto",
     "mkv_path": "C:/HAVCServerDiT/GUI/tools/MKVToolNix/mkvmerge.exe",
     "hf_cache": "",
-    "prompt": "Colorize this image, natural colors. Strictly preserve all shapes, edges and background details.",
+    "prompt": "color this image, natural colors. Strictly preserve all shapes, edges and background details.",
     "shutdown_on_complete": false,
     "dupe_first_frame": true,
     "do_step1": true,

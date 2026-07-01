@@ -11,6 +11,5 @@ clip = cmnet2.vs_extract_reference_frames(clip, sc_threshold=float(ScThreshold),
 # adjusting output color from RGB24 to YUV420P10 for x265Model
 clip = core.resize.Bicubic(clip=clip, format=vs.YUV420P10, matrix_s="709", range_in_s="full", range_s="limited") # additional resize to match target color sampling
 # output
-clip.set_output(
-)
+clip.set_output()
 
